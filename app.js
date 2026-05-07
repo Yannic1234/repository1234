@@ -168,7 +168,7 @@ async function loadAndRender() {
     let coords;
 
     if (postalCode && !isPostalCode) {
-      throw new Error('Bitte eine gültige 5-stellige PLZ eingeben.');
+      throw new Error('Bitte eine gültige 5-stellige deutsche PLZ eingeben.');
     }
 
     if (isPostalCode) {
