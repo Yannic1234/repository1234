@@ -184,7 +184,6 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     throw new Error(`Keine Datenreihen für ${metricLabel} verfügbar.`);
   }
 
-  // Für überlagerte Quellenverläufe wird die Legende immer eingeblendet.
   charts[canvasId] = new Chart(ctx, {
     type: 'line',
     data: {
