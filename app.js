@@ -98,7 +98,7 @@ function parseDwdForecast(data, stationId, hours) {
 
     return {
       x: times[idx],
-      // DWD liefert Temperatur in 0.1 °C; Niederschlag ist ebenfalls in Zehntel-Einheiten skaliert.
+      // DWD liefert Temperatur in 0.1 °C. Niederschlag ist ebenfalls in Zehntel-Einheiten skaliert.
       temperature_2m: Number.isFinite(temperature) ? temperature / 10 : null,
       precipitation: Number.isFinite(precipitation) ? precipitation / 10 : null,
       uv_index: Number.isFinite(uvIndex) ? uvIndex : null
@@ -109,6 +109,7 @@ function parseDwdForecast(data, stationId, hours) {
 }
 
 async function fetchDwdSeries(hours) {
+  // Der Query-Parameter heißt laut API-Dokumentation "stationIds", auch bei nur einer Station.
   const params = new URLSearchParams({ stationIds: DWD_STATION_ID });
   const url = `https://app-prod-ws.warnwetter.de/v30/stationOverviewExtended?${params.toString()}`;
   const res = await fetch(url);
@@ -193,6 +194,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       parsing: false,
       responsive: true,
       interaction: { mode: 'index', intersect: false },
+      // Sichtbare Legende ist erforderlich, um die überlagerten Quellenlinien zu unterscheiden.
       plugins: { legend: { display: true } },
       scales: {
         x: {
