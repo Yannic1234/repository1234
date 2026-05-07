@@ -1,8 +1,9 @@
 const statusEl = document.getElementById('status');
 const loadBtn = document.getElementById('loadBtn');
 const hoursInput = document.getElementById('hoursInput');
+const locationInput = document.getElementById('locationInput');
 const DEFAULT_COORDS = { latitude: 52.52, longitude: 13.405 };
-const DWD_STATION_ID = '10865';
+const DEFAULT_LOCATION_QUERY = 'Berlin';
 const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7'];
 
 const PROVIDERS = [
@@ -12,9 +13,9 @@ const PROVIDERS = [
     unavailableReason: 'keine frei dokumentierte API'
   },
   {
-    id: 'dwd',
-    label: 'Deutscher Wetterdienst (DWD)',
-    fetchSeries: fetchDwdSeries
+    id: 'open-meteo',
+    label: 'Open-Meteo',
+    fetchSeries: fetchOpenMeteoSeries
   },
   {
     id: 'kachelmann',
@@ -39,86 +40,60 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
-function buildForecastTimeAxis(series) {
-  if (Array.isArray(series.time) && series.time.length > 0) {
-    return series.time.map((t) => new Date(t));
-  }
-
-  const maxLen = Math.max(
-    series.temperature?.length || 0,
-    series.precipitationTotal?.length || 0,
-    series.precipitation?.length || 0,
-    series.uvIndex?.length || 0,
-    series.uvi?.length || 0
-  );
-
-  if (Number.isFinite(series.start) && Number.isFinite(series.timeStep) && maxLen > 0) {
-    return Array.from({ length: maxLen }, (_, idx) => new Date(series.start + idx * series.timeStep));
-  }
-
-  return [];
-}
-
-function findForecastSeriesCandidates(node, out = []) {
-  if (!node || typeof node !== 'object') return out;
-
-  const hasTemp = Array.isArray(node.temperature);
-  const hasTime =
-    (Array.isArray(node.time) && node.time.length > 0) ||
-    (Number.isFinite(node.start) && Number.isFinite(node.timeStep));
-
-  if (hasTemp && hasTime) out.push(node);
-
-  Object.values(node).forEach((value) => {
-    if (value && typeof value === 'object') findForecastSeriesCandidates(value, out);
+async function fetchOpenMeteoSeries(hours, coords) {
+  const params = new URLSearchParams({
+    latitude: String(coords.latitude),
+    longitude: String(coords.longitude),
+    hourly: 'temperature_2m,precipitation,uv_index',
+    forecast_hours: String(hours),
+    timezone: 'auto'
   });
-
-  return out;
-}
-
-function parseDwdForecast(data, stationId, hours) {
-  const stationData = data?.[stationId] ?? Object.values(data || {}).find((v) => v && typeof v === 'object');
-  if (!stationData) throw new Error('DWD Station nicht gefunden.');
-
-  const candidates = findForecastSeriesCandidates(stationData);
-  const selected = candidates.find((c) => Array.isArray(c.temperature));
-  if (!selected) throw new Error('DWD Vorhersageformat nicht erkannt.');
-
-  const times = buildForecastTimeAxis(selected);
-  if (!times.length) throw new Error('DWD Vorhersagezeiten fehlen.');
-
-  const precipitationArray = selected.precipitationTotal ?? selected.precipitation ?? [];
-  const uvArray = selected.uvIndex ?? [];
-  const maxLen = Math.min(hours, times.length);
-
-  return Array.from({ length: maxLen }, (_, idx) => {
-    const temperature = selected.temperature?.[idx];
-    const precipitation = precipitationArray?.[idx];
-    const uvIndex = uvArray?.[idx];
-
-    return {
-      x: times[idx],
-      // DWD liefert Temperatur in 0.1 °C. Niederschlag ist ebenfalls in Zehntel-Einheiten skaliert.
-      temperature_2m: Number.isFinite(temperature) ? temperature / 10 : null,
-      precipitation: Number.isFinite(precipitation) ? precipitation / 10 : null,
-      uv_index: Number.isFinite(uvIndex) ? uvIndex : null
-    };
-  })
-    // Punkte mit mindestens einem Messwert behalten, da je Diagramm nur die jeweilige Metrik geplottet wird.
-    .filter(hasAnyValidMetric);
-}
-
-async function fetchDwdSeries(hours) {
-  // Der Query-Parameter heißt laut API-Dokumentation "stationIds", auch bei nur einer Station.
-  const params = new URLSearchParams({ stationIds: DWD_STATION_ID });
-  const url = `https://app-prod-ws.warnwetter.de/v30/stationOverviewExtended?${params.toString()}`;
+  const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  return parseDwdForecast(data, DWD_STATION_ID, hours);
+
+  const times = data?.hourly?.time ?? [];
+  const temperatures = data?.hourly?.temperature_2m ?? [];
+  const precipitation = data?.hourly?.precipitation ?? [];
+  const uvIndex = data?.hourly?.uv_index ?? [];
+  const maxLen = Math.min(hours, times.length);
+
+  return Array.from({ length: maxLen }, (_, idx) => ({
+    x: new Date(times[idx]),
+    temperature_2m: Number.isFinite(temperatures[idx]) ? temperatures[idx] : null,
+    precipitation: Number.isFinite(precipitation[idx]) ? precipitation[idx] : null,
+    uv_index: Number.isFinite(uvIndex[idx]) ? uvIndex[idx] : null
+  })).filter(hasAnyValidMetric);
 }
 
-async function loadAvailableSeries(hours) {
+async function geocodeLocation(query) {
+  const params = new URLSearchParams({
+    name: query,
+    count: '1',
+    language: 'de',
+    format: 'json'
+  });
+  const url = `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Standortsuche fehlgeschlagen (HTTP ${res.status})`);
+  const data = await res.json();
+  const bestMatch = data?.results?.[0];
+
+  if (!bestMatch || !Number.isFinite(bestMatch.latitude) || !Number.isFinite(bestMatch.longitude)) {
+    throw new Error('Standort nicht gefunden.');
+  }
+
+  const region = bestMatch.admin1;
+  const parts = [bestMatch.name, region, bestMatch.country].filter(Boolean);
+  return {
+    latitude: bestMatch.latitude,
+    longitude: bestMatch.longitude,
+    label: parts.join(', ')
+  };
+}
+
+async function loadAvailableSeries(hours, coords) {
   const available = [];
   const unavailable = [];
 
@@ -129,7 +104,7 @@ async function loadAvailableSeries(hours) {
     }
 
     try {
-      const points = await provider.fetchSeries(hours, DEFAULT_COORDS);
+      const points = await provider.fetchSeries(hours, coords);
       if (points.length > 0) {
         available.push({
           id: provider.id,
@@ -208,8 +183,12 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
 async function loadAndRender() {
   try {
     const hours = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
-    setStatus('Quellen werden geladen …');
-    const { available, unavailable } = await loadAvailableSeries(hours);
+    const query = locationInput.value.trim() || DEFAULT_LOCATION_QUERY;
+    setStatus('Standort wird gesucht …');
+    const location = await geocodeLocation(query);
+    locationInput.value = location.label;
+    setStatus(`Quellen werden geladen … (${location.label})`);
+    const { available, unavailable } = await loadAvailableSeries(hours, location);
 
     if (available.length === 0) {
       throw new Error('Keine verfügbare Wetterquelle lieferte Daten.');
@@ -221,7 +200,7 @@ async function loadAndRender() {
 
     const loadedNames = available.map((p) => p.label).join(', ');
     const unavailableText = unavailable.length ? ` | Nicht verfügbar: ${unavailable.join('; ')}` : '';
-    setStatus(`Fertig: ${available.length} Quelle(n) geladen (${loadedNames})${unavailableText}`);
+    setStatus(`Fertig: ${available.length} Quelle(n) geladen für ${location.label} (${loadedNames})${unavailableText}`);
   } catch (error) {
     setStatus(`Fehler: ${error.message}`);
   }
