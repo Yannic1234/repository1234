@@ -36,6 +36,10 @@ input {
   width: 5rem;
 }
 
+#locationInput {
+  width: 14rem;
+}
+
 .status {
   opacity: 0.9;
 }
