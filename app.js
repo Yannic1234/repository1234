@@ -98,7 +98,7 @@ function parseDwdForecast(data, stationId, hours) {
 
     return {
       x: times[idx],
-      // DWD liefert Temperatur in 0.1 °C und Niederschlag in 0.1 mm/h.
+      // DWD liefert Temperatur in 0.1 °C; Niederschlag ist ebenfalls in Zehntel-Einheiten skaliert.
       temperature_2m: Number.isFinite(temperature) ? temperature / 10 : null,
       precipitation: Number.isFinite(precipitation) ? precipitation / 10 : null,
       uv_index: Number.isFinite(uvIndex) ? uvIndex : null
@@ -183,6 +183,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     throw new Error(`Keine Datenreihen für ${metricLabel} verfügbar.`);
   }
 
+  // Für überlagerte Quellenverläufe wird die Legende immer eingeblendet.
   charts[canvasId] = new Chart(ctx, {
     type: 'line',
     data: {
@@ -192,7 +193,6 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       parsing: false,
       responsive: true,
       interaction: { mode: 'index', intersect: false },
-      // Für überlagerte Quellenverläufe ist die Legende erforderlich, damit Linien zuordenbar sind.
       plugins: { legend: { display: true } },
       scales: {
         x: {
