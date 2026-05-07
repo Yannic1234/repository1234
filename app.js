@@ -13,9 +13,9 @@ const PROVIDERS = [
     unavailableReason: 'keine frei dokumentierte API'
   },
   {
-    id: 'dwd',
+    id: 'open-meteo',
     label: 'Open-Meteo',
-    fetchSeries: fetchDwdSeries
+    fetchSeries: fetchOpenMeteoSeries
   },
   {
     id: 'kachelmann',
@@ -40,7 +40,7 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
-async function fetchDwdSeries(hours, coords) {
+async function fetchOpenMeteoSeries(hours, coords) {
   const params = new URLSearchParams({
     latitude: String(coords.latitude),
     longitude: String(coords.longitude),
@@ -84,7 +84,8 @@ async function geocodeLocation(query) {
     throw new Error('Standort nicht gefunden.');
   }
 
-  const parts = [bestMatch.name, bestMatch.admin1, bestMatch.country].filter(Boolean);
+  const region = bestMatch.admin1;
+  const parts = [bestMatch.name, region, bestMatch.country].filter(Boolean);
   return {
     latitude: bestMatch.latitude,
     longitude: bestMatch.longitude,
