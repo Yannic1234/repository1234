@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wettervergleich – Ensemble-Vorhersage</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Wettervorhersage (nächste Stunden)</h1>
+      <p>
+        Holt mehrere Prognose-Modelle für deinen aktuellen Standort und zeigt
+        Temperatur, Regenmenge und UV-Index als Mittelwert mit Unsicherheitsband
+        (±1 Standardabweichung).
+      </p>
+
+      <div class="controls">
+        <button id="loadBtn">Vorhersage laden</button>
+        <label>
+          Stunden
+          <input id="hoursInput" type="number" min="6" max="72" value="24" />
+        </label>
+      </div>
+
+      <p id="status" class="status">Bereit.</p>
+
+      <section class="chart-section">
+        <h2>Temperatur (°C)</h2>
+        <canvas id="tempChart"></canvas>
+      </section>
+      <section class="chart-section">
+        <h2>Regenmenge (mm/h)</h2>
+        <canvas id="rainChart"></canvas>
+      </section>
+      <section class="chart-section">
+        <h2>UV-Index</h2>
+        <canvas id="uvChart"></canvas>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
