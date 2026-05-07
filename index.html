@@ -12,17 +12,12 @@
     <main class="container">
       <h1>Wettervorhersage (nächste Stunden)</h1>
       <p>
-        Holt mehrere Prognose-Modelle für deinen aktuellen Standort und zeigt
-        Temperatur, Regenmenge und UV-Index als Mittelwert mit Unsicherheitsband
-        (±1 Standardabweichung).
+        Lädt verfügbare Wetterquellen und zeigt die Verläufe von Temperatur,
+        Regenmenge und UV-Index je Quelle überlagert mit Legende.
       </p>
 
       <div class="controls">
         <button id="loadBtn">Vorhersage laden</button>
-        <label>
-          PLZ
-          <input id="postalCodeInput" type="text" inputmode="numeric" maxlength="5" placeholder="z. B. 10115" />
-        </label>
         <label>
           Stunden
           <input id="hoursInput" type="number" min="6" max="72" value="24" />
