@@ -105,9 +105,7 @@ function parseDwdForecast(data, stationId, hours) {
     };
   })
     // Punkte mit mindestens einem Messwert behalten, da je Diagramm nur die jeweilige Metrik geplottet wird.
-    .filter((point) =>
-      Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index)
-    );
+    .filter(hasAnyValidMetric);
 }
 
 async function fetchDwdSeries(hours) {
@@ -157,6 +155,10 @@ function getMetricSeries(points, key) {
     }));
 }
 
+function hasAnyValidMetric(point) {
+  return Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index);
+}
+
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
 
@@ -190,6 +192,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       parsing: false,
       responsive: true,
       interaction: { mode: 'index', intersect: false },
+      // Für überlagerte Quellenverläufe ist die Legende erforderlich, damit Linien zuordenbar sind.
       plugins: { legend: { display: true } },
       scales: {
         x: {
