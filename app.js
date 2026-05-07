@@ -88,7 +88,7 @@ function parseDwdForecast(data, stationId, hours) {
   if (!times.length) throw new Error('DWD Vorhersagezeiten fehlen.');
 
   const precipitationArray = selected.precipitationTotal ?? selected.precipitation ?? [];
-  const uvArray = selected.uvIndex ?? selected.uvi ?? selected.uv_index ?? [];
+  const uvArray = selected.uvIndex ?? [];
   const maxLen = Math.min(hours, times.length);
 
   return Array.from({ length: maxLen }, (_, idx) => {
@@ -98,13 +98,16 @@ function parseDwdForecast(data, stationId, hours) {
 
     return {
       x: times[idx],
+      // DWD liefert Temperatur in 0.1 °C und Niederschlag in 0.1 mm/h.
       temperature_2m: Number.isFinite(temperature) ? temperature / 10 : null,
       precipitation: Number.isFinite(precipitation) ? precipitation / 10 : null,
       uv_index: Number.isFinite(uvIndex) ? uvIndex : null
     };
-  }).filter((point) =>
-    Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index)
-  );
+  })
+    // Punkte mit mindestens einem Messwert behalten, da je Diagramm nur die jeweilige Metrik geplottet wird.
+    .filter((point) =>
+      Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index)
+    );
 }
 
 async function fetchDwdSeries(hours) {
