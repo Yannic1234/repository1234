@@ -38,7 +38,7 @@ async function getPosition() {
   });
 }
 
-async function getPositionFromPostalCode(postalCode) {
+async function getPositionFromGermanPostalCode(postalCode) {
   const params = new URLSearchParams({
     name: postalCode,
     count: '1',
@@ -173,7 +173,7 @@ async function loadAndRender() {
 
     if (isPostalCode) {
       setStatus(`Standort für PLZ ${postalCode} wird ermittelt …`);
-      coords = await getPositionFromPostalCode(postalCode);
+      coords = await getPositionFromGermanPostalCode(postalCode);
     } else {
       setStatus('Standort wird ermittelt …');
       coords = await getPosition();
