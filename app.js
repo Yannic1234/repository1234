@@ -1,6 +1,7 @@
 const statusEl = document.getElementById('status');
 const loadBtn = document.getElementById('loadBtn');
 const hoursInput = document.getElementById('hoursInput');
+const postalCodeInput = document.getElementById('postalCodeInput');
 
 const MODELS = ['ecmwf_ifs04', 'gfs_seamless', 'icon_seamless', 'meteofrance_seamless'];
 
@@ -34,6 +35,30 @@ async function getPosition() {
       { enableHighAccuracy: true, timeout: 10000 }
     );
   });
+}
+
+async function getPositionFromPostalCode(postalCode) {
+  const params = new URLSearchParams({
+    name: postalCode,
+    count: '1',
+    language: 'de',
+    format: 'json',
+    countryCode: 'DE'
+  });
+  const url = `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`PLZ-Suche fehlgeschlagen: ${res.status}`);
+
+  const data = await res.json();
+  const bestMatch = data?.results?.[0];
+  if (!bestMatch || !Number.isFinite(bestMatch.latitude) || !Number.isFinite(bestMatch.longitude)) {
+    throw new Error(`Keine Position für PLZ ${postalCode} gefunden.`);
+  }
+
+  return {
+    latitude: bestMatch.latitude,
+    longitude: bestMatch.longitude
+  };
 }
 
 async function fetchForecast(lat, lon, hours) {
@@ -137,8 +162,21 @@ function renderChart(canvasId, label, stats, color) {
 async function loadAndRender() {
   try {
     const hours = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
-    setStatus('Standort wird ermittelt …');
-    const coords = await getPosition();
+    const postalCode = (postalCodeInput.value || '').trim();
+    const isPostalCode = /^\d{5}$/.test(postalCode);
+    let coords;
+
+    if (postalCode && !isPostalCode) {
+      throw new Error('Bitte eine gültige 5-stellige PLZ eingeben.');
+    }
+
+    if (isPostalCode) {
+      setStatus(`Standort für PLZ ${postalCode} wird ermittelt …`);
+      coords = await getPositionFromPostalCode(postalCode);
+    } else {
+      setStatus('Standort wird ermittelt …');
+      coords = await getPosition();
+    }
 
     setStatus('Vorhersagen werden geladen …');
     const data = await fetchForecast(coords.latitude, coords.longitude, hours);
@@ -157,8 +195,9 @@ async function loadAndRender() {
     renderChart('rainChart', 'Regen', rainStats, 'rgba(59, 130, 246, 1)');
     renderChart('uvChart', 'UV-Index', uvStats, 'rgba(234, 179, 8, 1)');
 
+    const sourceText = isPostalCode ? `PLZ ${postalCode}` : 'GPS';
     setStatus(
-      `Fertig: ${hourlyArray.length} Modelle für ${hours} Stunden. Standort: ${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)}`
+      `Fertig: ${hourlyArray.length} Modelle für ${hours} Stunden. Standort (${sourceText}): ${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)}`
     );
   } catch (error) {
     setStatus(`Fehler: ${error.message}`);

@@ -20,6 +20,10 @@
       <div class="controls">
         <button id="loadBtn">Vorhersage laden</button>
         <label>
+          PLZ
+          <input id="postalCodeInput" type="text" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" placeholder="z. B. 10115" />
+        </label>
+        <label>
           Stunden
           <input id="hoursInput" type="number" min="6" max="72" value="24" />
         </label>

@@ -36,6 +36,10 @@ input {
   width: 5rem;
 }
 
+#postalCodeInput {
+  width: 7.5rem;
+}
+
 .status {
   opacity: 0.9;
 }
