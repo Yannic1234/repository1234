@@ -2,6 +2,7 @@ const statusEl = document.getElementById('status');
 const loadBtn = document.getElementById('loadBtn');
 const hoursInput = document.getElementById('hoursInput');
 const postalCodeInput = document.getElementById('postalCodeInput');
+const POSTAL_CODE_PATTERN = /^\d{5}$/;
 
 const MODELS = ['ecmwf_ifs04', 'gfs_seamless', 'icon_seamless', 'meteofrance_seamless'];
 
@@ -163,7 +164,7 @@ async function loadAndRender() {
   try {
     const hours = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
     const postalCode = (postalCodeInput.value || '').trim();
-    const isPostalCode = /^\d{5}$/.test(postalCode);
+    const isPostalCode = POSTAL_CODE_PATTERN.test(postalCode);
     let coords;
 
     if (postalCode && !isPostalCode) {
