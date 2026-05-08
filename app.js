@@ -4,15 +4,35 @@ const hoursInput = document.getElementById('hoursInput');
 const locationInput = document.getElementById('locationInput');
 const DEFAULT_COORDS = { latitude: 52.52, longitude: 13.405 };
 const DEFAULT_LOCATION_QUERY = 'Berlin';
-const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7', '#f97316', '#06b6d4', '#84cc16'];
+const LINE_COLORS     = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7', '#f97316', '#06b6d4', '#84cc16'];
+const LINE_COLORS_RGB = [
+  '239,68,68',   // red
+  '59,130,246',  // blue
+  '234,179,8',   // yellow
+  '16,185,129',  // green
+  '168,85,247',  // purple
+  '249,115,22',  // orange
+  '6,182,212',   // cyan
+  '132,204,22'   // lime
+];
 
-// Metric-specific gradient colors (RGB string) used for the chart background gradient
-// white (bottom/low value) → color (top/high value)
-const METRIC_GRADIENT_RGB = {
-  temperature_2m: '239,68,68',   // red
-  precipitation: '59,130,246',   // blue
-  uv_index: '249,115,22'         // orange
-};
+// Dash patterns for distinguishing overlapping series
+const DASH_PATTERNS = [
+  [],              // solid
+  [8, 4],          // dashed
+  [2, 4],          // dotted
+  [10, 4, 2, 4],   // dash-dot
+  [14, 4, 2, 4, 2, 4], // dash-dot-dot
+  [6, 2],          // short dash
+  [16, 4],         // long dash
+  [6, 4, 2, 4]     // short dash-dot
+];
+
+// Global Chart.js defaults – dark theme
+Chart.defaults.color                     = 'rgba(255,255,255,0.55)';
+Chart.defaults.borderColor               = 'rgba(255,255,255,0.07)';
+Chart.defaults.font.family               = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
+Chart.defaults.font.size                 = 11;
 
 // DWD station lookup table (Stationskennung / WMO block station numbers with coordinates)
 const DWD_STATIONS = [
@@ -414,38 +434,182 @@ function hasAnyValidMetric(point) {
   return Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index);
 }
 
-function makeGradientBackgroundPlugin(rgb) {
-  return {
-    id: 'gradientBg',
-    beforeDatasetsDraw(chart) {
-      const { ctx, chartArea } = chart;
-      if (!chartArea) return;
-      const { left, top, right, bottom } = chartArea;
-      const gradient = ctx.createLinearGradient(0, bottom, 0, top);
-      gradient.addColorStop(0, 'rgba(255,255,255,0.06)');
-      gradient.addColorStop(1, `rgba(${rgb},0.32)`);
-      ctx.save();
-      ctx.fillStyle = gradient;
-      ctx.fillRect(left, top, right - left, bottom - top);
-      ctx.restore();
-    }
-  };
+// ─── Weather background ───────────────────────────────────────────────────────
+
+const WEATHER_META = {
+  sunny:          { icon: '☀️',  label: 'Sonnig' },
+  'partly-cloudy':{ icon: '⛅', label: 'Leicht bewölkt' },
+  cloudy:         { icon: '☁️',  label: 'Bewölkt' },
+  rainy:          { icon: '🌧️', label: 'Regen' },
+  snow:           { icon: '❄️',  label: 'Schnee' },
+  stormy:         { icon: '⛈️', label: 'Gewitter' },
+  fog:            { icon: '🌫️', label: 'Nebel' },
+  night:          { icon: '🌙',  label: 'Nacht' }
+};
+
+function weatherCodeToClass(code, isDay) {
+  if (!isDay) return 'night';
+  if (code <= 1)                          return 'sunny';
+  if (code === 2 || code === 3)           return 'cloudy';
+  if (code === 45 || code === 48)         return 'fog';
+  if (code >= 51 && code <= 67)           return 'rainy';
+  if (code >= 71 && code <= 77)           return 'snow';
+  if (code >= 80 && code <= 82)           return 'rainy';
+  if (code === 85 || code === 86)         return 'snow';
+  if (code >= 95)                         return 'stormy';
+  return 'cloudy';
 }
+
+async function applyWeatherBackground(coords) {
+  try {
+    const params = new URLSearchParams({
+      latitude:  String(coords.latitude),
+      longitude: String(coords.longitude),
+      current: 'weather_code,is_day'
+    });
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const code  = data?.current?.weather_code ?? 0;
+    const isDay = Boolean(data?.current?.is_day ?? 1);
+    const cls   = weatherCodeToClass(code, isDay);
+    setWeatherUI(cls);
+  } catch { /* silent – background stays at default */ }
+}
+
+function setWeatherUI(cls) {
+  const bg        = document.getElementById('weatherBg');
+  const indicator = document.getElementById('weatherIndicator');
+  const iconEl    = document.getElementById('weatherIcon');
+  const labelEl   = document.getElementById('weatherLabel');
+  if (bg)        { bg.className = cls; }
+  const meta = WEATHER_META[cls];
+  if (indicator && meta) {
+    iconEl.textContent  = meta.icon;
+    labelEl.textContent = meta.label;
+    indicator.classList.remove('hidden');
+  }
+}
+
+// Initialise background from local time before any fetch
+(function initWeatherBackground() {
+  const h = new Date().getHours();
+  setWeatherUI(h >= 6 && h < 20 ? 'sunny' : 'night');
+})();
+
+// ─── Vertical midnight / noon grid-line plugin ────────────────────────────────
+
+const midnightNoonPlugin = {
+  id: 'midnightNoon',
+  beforeDatasetsDraw(chart) {
+    const { ctx, scales, chartArea } = chart;
+    const xScale = scales.x;
+    if (!xScale || !chartArea) return;
+    const { top, bottom } = chartArea;
+    const xMin = xScale.min;
+    const xMax = xScale.max;
+
+    ctx.save();
+    ctx.lineWidth = 1;
+
+    const startDay = new Date(xMin);
+    startDay.setHours(0, 0, 0, 0);
+
+    for (let d = new Date(startDay); d.getTime() <= xMax; d.setDate(d.getDate() + 1)) {
+      // Midnight  (0:00)
+      const midMs = d.getTime();
+      if (midMs >= xMin && midMs <= xMax) {
+        const px = xScale.getPixelForValue(midMs);
+        ctx.setLineDash([5, 6]);
+        ctx.strokeStyle = 'rgba(110,160,255,0.38)';
+        ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(110,160,255,0.52)';
+        ctx.font = `10px ${Chart.defaults.font.family}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('0:00', px, top + 11);
+      }
+      // Noon  (12:00)
+      const noonMs = d.getTime() + 12 * 3_600_000;
+      if (noonMs >= xMin && noonMs <= xMax) {
+        const px = xScale.getPixelForValue(noonMs);
+        ctx.setLineDash([5, 6]);
+        ctx.strokeStyle = 'rgba(255,215,60,0.32)';
+        ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,215,60,0.50)';
+        ctx.font = `10px ${Chart.defaults.font.family}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('12:00', px, top + 11);
+      }
+    }
+    ctx.restore();
+  }
+};
+
+// ─── Chart rendering ──────────────────────────────────────────────────────────
 
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
 
   if (charts[canvasId]) charts[canvasId].destroy();
 
+  const hours       = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
+  const now         = Date.now();
+  const xRangeEnd   = now + hours * 3_600_000;
+
+  const sharedScales = {
+    x: {
+      type: 'time',
+      min: now,
+      max: xRangeEnd,
+      time: {
+        unit: 'hour',
+        displayFormats: { hour: 'HH:mm', day: 'dd.MM.' },
+        tooltipFormat: 'dd.MM.yyyy HH:mm'
+      },
+      ticks: {
+        color: 'rgba(255,255,255,0.48)',
+        maxRotation: 0,
+        font: { size: 11 }
+      },
+      grid: { display: false }  // vertical lines handled by midnightNoonPlugin
+    },
+    y: {
+      grid: {
+        color: 'rgba(255,255,255,0.08)',
+        drawTicks: false
+      },
+      ticks: {
+        color: 'rgba(255,255,255,0.48)',
+        font: { size: 11 },
+        padding: 8
+      },
+      border: { dash: [4, 4] }
+    }
+  };
+
   const datasets = seriesByProvider
     .map((provider, idx) => {
       const data = getMetricSeries(provider.points, metricKey);
       if (data.length === 0) return null;
+      const rgb = LINE_COLORS_RGB[idx % LINE_COLORS_RGB.length];
       return {
         label: provider.label,
         data,
         borderColor: LINE_COLORS[idx % LINE_COLORS.length],
         borderWidth: 2,
+        borderDash: DASH_PATTERNS[idx % DASH_PATTERNS.length],
+        fill: 'origin',
+        backgroundColor(context) {
+          const chart = context.chart;
+          const { ctx: c, chartArea } = chart;
+          if (!chartArea) return `rgba(${rgb},0.08)`;
+          const g = c.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+          g.addColorStop(0, 'rgba(255,255,255,0.03)');
+          g.addColorStop(1, `rgba(${rgb},0.28)`);
+          return g;
+        },
         pointRadius: 0,
         tension: 0.25
       };
@@ -453,60 +617,57 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     .filter(Boolean);
 
   if (datasets.length === 0) {
-    // Keine Quelldaten für diese Metrik – leeres Diagramm mit Hinweistext
     charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: { datasets: [] },
-      options: { responsive: true, plugins: { legend: { display: false } } },
-      plugins: [{
-        id: 'noDataLabel',
-        afterDraw(chart) {
-          const { ctx: c, width, height } = chart;
-          c.save();
-          c.textAlign = 'center';
-          c.textBaseline = 'middle';
-          c.fillStyle = 'rgba(255,255,255,0.45)';
-          c.font = '14px sans-serif';
-          c.fillText(`${metricLabel}: keine Daten von den geladenen Quellen`, width / 2, height / 2);
-          c.restore();
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: sharedScales
+      },
+      plugins: [
+        midnightNoonPlugin,
+        {
+          id: 'noDataLabel',
+          afterDraw(chart) {
+            const { ctx: c, width, height } = chart;
+            c.save();
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillStyle = 'rgba(255,255,255,0.40)';
+            c.font = `14px ${Chart.defaults.font.family}`;
+            c.fillText(`${metricLabel}: keine Daten von den geladenen Quellen`, width / 2, height / 2);
+            c.restore();
+          }
         }
-      }]
+      ]
     });
     return;
   }
 
-  // Determine the full time range across all datasets so the x-axis shows all loaded data
-  let xMin = Infinity;
-  let xMax = -Infinity;
-  for (const ds of datasets) {
-    for (const pt of ds.data) {
-      const t = pt.x instanceof Date ? pt.x.getTime() : new Date(pt.x).getTime();
-      if (t < xMin) xMin = t;
-      if (t > xMax) xMax = t;
-    }
-  }
-
   charts[canvasId] = new Chart(ctx, {
     type: 'line',
-    data: {
-      datasets
-    },
+    data: { datasets },
     options: {
       parsing: false,
       responsive: true,
       interaction: { mode: 'index', intersect: false },
-      // Sichtbare Legende ist erforderlich, um die überlagerten Quellenlinien zu unterscheiden.
-      plugins: { legend: { display: true } },
-      scales: {
-        x: {
-          type: 'time',
-          min: xMin === Infinity ? undefined : xMin,
-          max: xMax === -Infinity ? undefined : xMax,
-          time: { unit: 'hour', tooltipFormat: 'dd.MM.yyyy HH:mm' }
+      plugins: {
+        legend: {
+          display: true,
+          labels: {
+            color: 'rgba(255,255,255,0.80)',
+            font: { size: 11 },
+            usePointStyle: true,
+            pointStyle: 'line',
+            boxWidth: 32,
+            padding: 16
+          }
         }
-      }
+      },
+      scales: sharedScales
     },
-    plugins: [makeGradientBackgroundPlugin(METRIC_GRADIENT_RGB[metricKey] ?? '100,100,100')]
+    plugins: [midnightNoonPlugin]
   });
 }
 
@@ -517,6 +678,10 @@ async function loadAndRender() {
     setStatus('Standort wird gesucht …');
     const location = await geocodeLocation(query);
     locationInput.value = location.label;
+
+    // Update weather background without blocking the main data load
+    applyWeatherBackground(location);
+
     setStatus(`Quellen werden geladen … (${location.label})`);
     const { available, unavailable } = await loadAvailableSeries(hours, location);
 
@@ -525,10 +690,10 @@ async function loadAndRender() {
     }
 
     renderOverlayChart('tempChart', 'Temperatur', available, 'temperature_2m');
-    renderOverlayChart('rainChart', 'Regen', available, 'precipitation');
-    renderOverlayChart('uvChart', 'UV-Index', available, 'uv_index');
+    renderOverlayChart('rainChart', 'Regen',      available, 'precipitation');
+    renderOverlayChart('uvChart',   'UV-Index',   available, 'uv_index');
 
-    const loadedNames = available.map((p) => p.label).join(', ');
+    const loadedNames     = available.map((p) => p.label).join(', ');
     const unavailableText = unavailable.length ? ` | Nicht verfügbar: ${unavailable.join('; ')}` : '';
     setStatus(`Fertig: ${available.length} Quelle(n) geladen für ${location.label} (${loadedNames})${unavailableText}`);
   } catch (error) {
@@ -537,3 +702,4 @@ async function loadAndRender() {
 }
 
 loadBtn.addEventListener('click', loadAndRender);
+hoursInput.addEventListener('change', loadAndRender);

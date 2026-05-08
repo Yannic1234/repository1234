@@ -10,9 +10,16 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div id="weatherBg"></div>
     <main class="container">
-      <h1>Wettervorhersage (nächste Stunden)</h1>
-      <p>
+      <h1>
+        Wettervorhersage
+        <span id="weatherIndicator" class="weather-indicator hidden">
+          <span id="weatherIcon"></span>
+          <span id="weatherLabel"></span>
+        </span>
+      </h1>
+      <p class="subtitle">
         Lädt verfügbare Wetterquellen und zeigt die Verläufe von Temperatur,
         Regenmenge und UV-Index je Quelle überlagert mit Legende.
       </p>
