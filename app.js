@@ -639,10 +639,10 @@ function updateSidebarStats(data, locationLabel) {
 
   // UV index
   const uv = cur.uv_index;
-  const isDay = Boolean(cur.is_day ?? 1);
+  const isCurrentlyDay = Boolean(cur.is_day ?? 1);
   setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
   let uvColor = 'var(--text)';
-  if (Number.isFinite(uv) && !isDay) {
+  if (Number.isFinite(uv) && !isCurrentlyDay) {
     uvColor = 'rgba(245,247,250,0.50)';
   } else if (Number.isFinite(uv)) {
     const matchedUvColor = UV_INDEX_COLORS.find((entry) => uv >= entry.min);
@@ -949,7 +949,9 @@ function getMetricUpperBound(metricKey, datasets, aggregateSeries) {
 function getDayKeyForDate(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 function getDailyTemperatureMarkers(aggregateSeries) {
