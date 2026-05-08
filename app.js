@@ -4,17 +4,7 @@ const hoursInput = document.getElementById('hoursInput');
 const locationInput = document.getElementById('locationInput');
 const DEFAULT_COORDS = { latitude: 52.52, longitude: 13.405 };
 const DEFAULT_LOCATION_QUERY = 'Berlin';
-const LINE_COLORS     = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7', '#f97316', '#06b6d4', '#84cc16'];
-const LINE_COLORS_RGB = [
-  '239,68,68',   // red
-  '59,130,246',  // blue
-  '234,179,8',   // yellow
-  '16,185,129',  // green
-  '168,85,247',  // purple
-  '249,115,22',  // orange
-  '6,182,212',   // cyan
-  '132,204,22'   // lime
-];
+const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7', '#f97316', '#06b6d4', '#84cc16'];
 
 // Dash patterns for distinguishing overlapping series
 const DASH_PATTERNS = [
@@ -28,11 +18,41 @@ const DASH_PATTERNS = [
   [6, 4, 2, 4]     // short dash-dot
 ];
 
-// Global Chart.js defaults – dark theme
-Chart.defaults.color                     = 'rgba(255,255,255,0.55)';
-Chart.defaults.borderColor               = 'rgba(255,255,255,0.07)';
-Chart.defaults.font.family               = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
-Chart.defaults.font.size                 = 11;
+// ─── Dark / Light theme helpers ───────────────────────────────────────────────
+
+function isDarkMode() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function getChartTheme() {
+  const dark = isDarkMode();
+  return {
+    tickColor:         dark ? 'rgba(255,255,255,0.60)' : 'rgba(0,0,0,0.58)',
+    gridColor:         dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+    legendColor:       dark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.78)',
+    noDataColor:       dark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.42)',
+    midnightLineColor: dark ? 'rgba(110,160,255,0.38)' : 'rgba(60,100,220,0.38)',
+    midnightTextColor: dark ? 'rgba(110,160,255,0.55)' : 'rgba(60,100,220,0.58)',
+    noonLineColor:     dark ? 'rgba(255,215,60,0.32)'  : 'rgba(190,130,0,0.42)',
+    noonTextColor:     dark ? 'rgba(255,215,60,0.52)'  : 'rgba(190,130,0,0.62)',
+  };
+}
+
+function applyChartDefaults() {
+  const t = getChartTheme();
+  Chart.defaults.color       = t.tickColor;
+  Chart.defaults.borderColor = t.gridColor;
+  Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
+  Chart.defaults.font.size   = 11;
+}
+
+applyChartDefaults();
+
+// Re-render when OS colour scheme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  applyChartDefaults();
+  if (Object.values(charts).some(Boolean)) loadAndRender();
+});
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -374,12 +394,11 @@ async function geocodeLocation(query) {
   const results = data?.results ?? [];
 
   if (results.length === 0) {
-    throw new Error('Standort nicht gefunden.');
+    throw new Error(`Ort „${query}" nicht gefunden. Bitte Schreibweise prüfen.`);
   }
 
-  // Prefer German cities; fall back to first result for international queries
-  const bestMatch =
-    results.find((r) => r.country_code === 'DE') ?? results[0];
+  // Use the first (most relevant) result returned by the geocoding API
+  const bestMatch = results[0];
 
   if (!Number.isFinite(bestMatch.latitude) || !Number.isFinite(bestMatch.longitude)) {
     throw new Error('Standort nicht gefunden.');
@@ -436,6 +455,63 @@ function hasAnyValidMetric(point) {
   return Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index);
 }
 
+// ─── Sidebar helpers ──────────────────────────────────────────────────────────
+
+function degToCompass(deg) {
+  const dirs = ['N','NNO','NO','ONO','O','OSO','SO','SSO','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+
+function formatLocalTime(isoStr) {
+  if (!isoStr) return '–';
+  // Strings from Open-Meteo look like "2024-05-01T05:42" – just grab the time part
+  const t = isoStr.split('T')[1];
+  return t ? t.slice(0, 5) : '–';
+}
+
+function setSidebarValue(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text ?? '–';
+}
+
+function updateSidebarStats(data, locationLabel) {
+  const cur   = data?.current ?? {};
+  const daily = data?.daily   ?? {};
+
+  if (locationLabel) setSidebarValue('locationName', locationLabel);
+
+  // Temperature
+  const temp = cur.temperature_2m;
+  setSidebarValue('currentTempBig', Number.isFinite(temp) ? Math.round(temp) : '–');
+
+  // Wind
+  const spd = cur.wind_speed_10m;
+  const dir = cur.wind_direction_10m;
+  setSidebarValue('windSpeed',  Number.isFinite(spd) ? `${Math.round(spd)} km/h` : '–');
+  setSidebarValue('windDirText', Number.isFinite(dir) ? `aus ${degToCompass(dir)}` : '–');
+
+  const arrowEl = document.getElementById('windArrow');
+  if (arrowEl && Number.isFinite(dir)) {
+    arrowEl.style.transform = `rotate(${dir}deg)`;
+  }
+
+  // Humidity
+  const hum = cur.relative_humidity_2m;
+  setSidebarValue('humidity', Number.isFinite(hum) ? `${Math.round(hum)} %` : '–');
+
+  // Pressure
+  const pres = cur.surface_pressure;
+  setSidebarValue('pressure', Number.isFinite(pres) ? `${Math.round(pres)} hPa` : '–');
+
+  // Sunrise / sunset
+  setSidebarValue('sunrise', formatLocalTime(daily.sunrise?.[0]));
+  setSidebarValue('sunset',  formatLocalTime(daily.sunset?.[0]));
+
+  // UV index
+  const uv = cur.uv_index;
+  setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
+}
+
 // ─── Weather background ───────────────────────────────────────────────────────
 
 const WEATHER_META = {
@@ -451,11 +527,12 @@ const WEATHER_META = {
 
 function weatherCodeToClass(code, isDay) {
   if (!isDay) return 'night';
-  if (code <= 1)                          return 'sunny';          // 0-1: Clear sky / mainly clear
-  if (code === 2 || code === 3)           return 'cloudy';         // 2-3: Partly/fully overcast
+  if (code <= 1)                          return 'sunny';          // 0-1: Clear / mainly clear
+  if (code === 2)                         return 'partly-cloudy';  // 2: Partly cloudy
+  if (code === 3)                         return 'cloudy';         // 3: Overcast
   if (code === 45 || code === 48)         return 'fog';            // 45/48: Fog / rime fog
-  if (code >= 51 && code <= 67)           return 'rainy';          // 51-67: Drizzle / rain / freezing rain
-  if (code >= 71 && code <= 77)           return 'snow';           // 71-77: Snow fall / snow grains / ice
+  if (code >= 51 && code <= 67)           return 'rainy';          // 51-67: Drizzle / rain
+  if (code >= 71 && code <= 77)           return 'snow';           // 71-77: Snow / ice
   if (code >= 80 && code <= 82)           return 'rainy';          // 80-82: Rain showers
   if (code === 85 || code === 86)         return 'snow';           // 85-86: Snow showers
   if (code >= 95)                         return 'stormy';         // 95-99: Thunderstorm
@@ -467,7 +544,10 @@ async function applyWeatherBackground(coords) {
     const params = new URLSearchParams({
       latitude:  String(coords.latitude),
       longitude: String(coords.longitude),
-      current: 'weather_code,is_day'
+      current:   'weather_code,is_day,temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure,uv_index',
+      daily:     'sunrise,sunset',
+      forecast_days: '1',
+      timezone:  'auto'
     });
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
     if (!res.ok) return;
@@ -476,9 +556,9 @@ async function applyWeatherBackground(coords) {
     const isDay = Boolean(data?.current?.is_day ?? 1);
     const cls   = weatherCodeToClass(code, isDay);
     setWeatherUI(cls);
+    updateSidebarStats(data, coords.label ?? '');
   } catch (err) {
     console.warn('[weather] background fetch failed:', err);
-    /* silent fallback – background stays at initialised default */
   }
 }
 
@@ -521,15 +601,16 @@ const midnightNoonPlugin = {
     startDay.setHours(0, 0, 0, 0);
 
     for (let d = new Date(startDay); d.getTime() <= xMax; d.setDate(d.getDate() + 1)) {
+      const theme = getChartTheme();
       // Midnight  (0:00)
       const midMs = d.getTime();
       if (midMs >= xMin && midMs <= xMax) {
         const px = xScale.getPixelForValue(midMs);
         ctx.setLineDash([5, 6]);
-        ctx.strokeStyle = 'rgba(110,160,255,0.38)';
+        ctx.strokeStyle = theme.midnightLineColor;
         ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(110,160,255,0.52)';
+        ctx.fillStyle = theme.midnightTextColor;
         ctx.font = `10px ${Chart.defaults.font.family}`;
         ctx.textAlign = 'center';
         ctx.fillText('0:00', px, top + 11);
@@ -539,10 +620,10 @@ const midnightNoonPlugin = {
       if (noonMs >= xMin && noonMs <= xMax) {
         const px = xScale.getPixelForValue(noonMs);
         ctx.setLineDash([5, 6]);
-        ctx.strokeStyle = 'rgba(255,215,60,0.32)';
+        ctx.strokeStyle = theme.noonLineColor;
         ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255,215,60,0.50)';
+        ctx.fillStyle = theme.noonTextColor;
         ctx.font = `10px ${Chart.defaults.font.family}`;
         ctx.textAlign = 'center';
         ctx.fillText('12:00', px, top + 11);
@@ -563,6 +644,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   const now         = Date.now();
   const xRangeEnd   = now + hours * MS_PER_HOUR;
 
+  const theme = getChartTheme();
+
   const sharedScales = {
     x: {
       type: 'time',
@@ -574,7 +657,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         tooltipFormat: 'dd.MM.yyyy HH:mm'
       },
       ticks: {
-        color: 'rgba(255,255,255,0.48)',
+        color: theme.tickColor,
         maxRotation: 0,
         font: { size: 11 }
       },
@@ -582,11 +665,11 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     },
     y: {
       grid: {
-        color: 'rgba(255,255,255,0.08)',
+        color: theme.gridColor,
         drawTicks: false
       },
       ticks: {
-        color: 'rgba(255,255,255,0.48)',
+        color: theme.tickColor,
         font: { size: 11 },
         padding: 8
       },
@@ -598,23 +681,13 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     .map((provider, idx) => {
       const data = getMetricSeries(provider.points, metricKey);
       if (data.length === 0) return null;
-      const rgb = LINE_COLORS_RGB[idx % LINE_COLORS_RGB.length];
       return {
         label: provider.label,
         data,
         borderColor: LINE_COLORS[idx % LINE_COLORS.length],
         borderWidth: 2,
         borderDash: DASH_PATTERNS[idx % DASH_PATTERNS.length],
-        fill: 'origin',
-        backgroundColor(context) {
-          const chart = context.chart;
-          const { ctx: c, chartArea } = chart;
-          if (!chartArea) return `rgba(${rgb},0.08)`;
-          const g = c.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-          g.addColorStop(0, 'rgba(255,255,255,0.03)');
-          g.addColorStop(1, `rgba(${rgb},0.28)`);
-          return g;
-        },
+        fill: false,
         pointRadius: 0,
         tension: 0.25
       };
@@ -639,7 +712,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             c.save();
             c.textAlign = 'center';
             c.textBaseline = 'middle';
-            c.fillStyle = 'rgba(255,255,255,0.40)';
+            c.fillStyle = theme.noDataColor;
             c.font = `14px ${Chart.defaults.font.family}`;
             c.fillText(`${metricLabel}: keine Daten von den geladenen Quellen`, width / 2, height / 2);
             c.restore();
@@ -661,7 +734,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         legend: {
           display: true,
           labels: {
-            color: 'rgba(255,255,255,0.80)',
+            color: theme.legendColor,
             font: { size: 11 },
             usePointStyle: true,
             pointStyle: 'line',
@@ -684,7 +757,7 @@ async function loadAndRender() {
     const location = await geocodeLocation(query);
     locationInput.value = location.label;
 
-    // Update weather background without blocking the main data load
+    // Update weather background and sidebar without blocking the main data load
     applyWeatherBackground(location);
 
     setStatus(`Quellen werden geladen … (${location.label})`);
@@ -708,3 +781,6 @@ async function loadAndRender() {
 
 loadBtn.addEventListener('click', loadAndRender);
 hoursInput.addEventListener('change', loadAndRender);
+locationInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') loadAndRender();
+});
