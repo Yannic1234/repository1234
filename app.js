@@ -939,7 +939,7 @@ const valueBadgePlugin = {
 
         const formatter = typeof dataset.valueBadgeFormatter === 'function'
           ? dataset.valueBadgeFormatter
-          : (value) => String(value);
+          : DEFAULT_BADGE_FORMATTER;
         const text = formatter(rawValue);
         if (!text) return;
         const metrics = ctx.measureText(text);
@@ -1057,6 +1057,12 @@ function getDailyUvMaxMarkers(aggregateSeries) {
   }
   return Array.from(perDay.values());
 }
+
+const TEMPERATURE_BADGE_FORMATTER = (value) => `${Math.round(value)}°C`;
+const UV_BADGE_FORMATTER = (value) => value.toFixed(1).replace(/\.0$/, '');
+const DEFAULT_BADGE_FORMATTER = (value) => Number.isFinite(value)
+  ? value.toFixed(1).replace(/\.0$/, '')
+  : String(value);
 
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
@@ -1180,7 +1186,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         borderColor: 'transparent',
         fill: false,
         valueBadge: true,
-        valueBadgeFormatter: (value) => `${Math.round(value)}°C`,
+        valueBadgeFormatter: TEMPERATURE_BADGE_FORMATTER,
         valueBadgeBackgroundColor: 'rgba(255, 215, 120, 0.96)',
         valueBadgeTextColor: '#3b2500'
       });
@@ -1198,7 +1204,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         borderColor: 'transparent',
         fill: false,
         valueBadge: true,
-        valueBadgeFormatter: (value) => `${Math.round(value)}°C`,
+        valueBadgeFormatter: TEMPERATURE_BADGE_FORMATTER,
         valueBadgeBackgroundColor: 'rgba(149, 198, 255, 0.96)',
         valueBadgeTextColor: '#082a4a'
       });
@@ -1220,7 +1226,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         borderColor: 'transparent',
         fill: false,
         valueBadge: true,
-        valueBadgeFormatter: (value) => value.toFixed(1).replace(/\.0$/, ''),
+        valueBadgeFormatter: UV_BADGE_FORMATTER,
         valueBadgeBackgroundColor: 'rgba(255, 176, 123, 0.98)',
         valueBadgeTextColor: '#4a1f00'
       });
