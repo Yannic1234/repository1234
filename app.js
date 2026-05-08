@@ -915,21 +915,23 @@ function formatCompactOneDecimal(value) {
   return value.toFixed(1).replace(/\.0$/, '');
 }
 
-const TEMPERATURE_BADGE_FORMATTER = (value) => `${Math.round(value)}°C`;
-const UV_BADGE_FORMATTER = (value) => formatCompactOneDecimal(value);
-const DEFAULT_BADGE_FORMATTER = (value) => Number.isFinite(value)
+const formatTemperatureBadge = (value) => `${Math.round(value)}°C`;
+const formatUvBadge = (value) => formatCompactOneDecimal(value);
+const formatDefaultBadge = (value) => Number.isFinite(value)
   ? formatCompactOneDecimal(value)
   : String(value);
+const BADGE_CONFIG = {
+  minWidth: 26,
+  horizontalPadding: 10,
+  height: 16,
+  verticalOffset: 22,
+  borderRadius: 5,
+  textBaselineAdjustment: 0.4
+};
 
 const valueBadgePlugin = {
   id: 'valueBadge',
   afterDatasetsDraw(chart) {
-    const MIN_BADGE_WIDTH = 26;
-    const BADGE_HORIZONTAL_PADDING = 10;
-    const BADGE_HEIGHT = 16;
-    const BADGE_VERTICAL_OFFSET = 22;
-    const BADGE_BORDER_RADIUS = 5;
-    const BADGE_TEXT_BASELINE_ADJUSTMENT = 0.4;
     const { ctx } = chart;
     if (!ctx) return;
     ctx.save();
@@ -949,21 +951,21 @@ const valueBadgePlugin = {
 
         const formatter = typeof dataset.valueBadgeFormatter === 'function'
           ? dataset.valueBadgeFormatter
-          : DEFAULT_BADGE_FORMATTER;
+          : formatDefaultBadge;
         const text = formatter(rawValue);
         if (!text) return;
         const metrics = ctx.measureText(text);
-        const width = Math.max(MIN_BADGE_WIDTH, metrics.width + BADGE_HORIZONTAL_PADDING);
-        const height = BADGE_HEIGHT;
+        const width = Math.max(BADGE_CONFIG.minWidth, metrics.width + BADGE_CONFIG.horizontalPadding);
+        const height = BADGE_CONFIG.height;
         const x = element.x - width / 2;
-        const y = element.y - BADGE_VERTICAL_OFFSET;
+        const y = element.y - BADGE_CONFIG.verticalOffset;
 
         ctx.fillStyle = dataset.valueBadgeBackgroundColor ?? 'rgba(255,255,255,0.86)';
-        drawRoundedRect(ctx, x, y, width, height, BADGE_BORDER_RADIUS);
+        drawRoundedRect(ctx, x, y, width, height, BADGE_CONFIG.borderRadius);
         ctx.fill();
 
         ctx.fillStyle = dataset.valueBadgeTextColor ?? '#0f172a';
-        ctx.fillText(text, element.x, y + height / 2 + BADGE_TEXT_BASELINE_ADJUSTMENT);
+        ctx.fillText(text, element.x, y + height / 2 + BADGE_CONFIG.textBaselineAdjustment);
       });
     });
 
@@ -1190,7 +1192,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         borderColor: 'transparent',
         fill: false,
         valueBadge: true,
-        valueBadgeFormatter: TEMPERATURE_BADGE_FORMATTER,
+        valueBadgeFormatter: formatTemperatureBadge,
         valueBadgeBackgroundColor: 'rgba(255, 215, 120, 0.96)',
         valueBadgeTextColor: '#3b2500'
       });
@@ -1208,7 +1210,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         borderColor: 'transparent',
         fill: false,
         valueBadge: true,
-        valueBadgeFormatter: TEMPERATURE_BADGE_FORMATTER,
+        valueBadgeFormatter: formatTemperatureBadge,
         valueBadgeBackgroundColor: 'rgba(149, 198, 255, 0.96)',
         valueBadgeTextColor: '#082a4a'
       });
@@ -1230,7 +1232,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         borderColor: 'transparent',
         fill: false,
         valueBadge: true,
-        valueBadgeFormatter: UV_BADGE_FORMATTER,
+        valueBadgeFormatter: formatUvBadge,
         valueBadgeBackgroundColor: 'rgba(255, 176, 123, 0.98)',
         valueBadgeTextColor: '#4a1f00'
       });
