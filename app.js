@@ -836,6 +836,7 @@ function setWeatherUI(cls) {
 const nowLinePlugin = {
   id: 'nowLine',
   afterDatasetsDraw(chart) {
+    // Draw after datasets so the "Jetzt"-indicator stays visible across all charts.
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea) return;
@@ -1067,21 +1068,7 @@ function getDailyTemperatureMarkers(aggregateSeries) {
   };
 }
 
-function getDailyUvMaxMarkers(aggregateSeries) {
-  const perDay = new Map();
-  for (const point of aggregateSeries) {
-    if (!Number.isFinite(point.mean) || point.mean <= 0) continue;
-    const key = getDayKeyForDate(point.x);
-    if (!key) continue;
-    const existing = perDay.get(key);
-    if (!existing || point.mean > existing.y) {
-      perDay.set(key, { x: point.x, y: point.mean });
-    }
-  }
-  return Array.from(perDay.values());
-}
-
-function getDailyPrecipMaxMarkers(aggregateSeries) {
+function getDailyMaxMarkers(aggregateSeries) {
   const perDay = new Map();
   for (const point of aggregateSeries) {
     if (!Number.isFinite(point.mean) || point.mean <= 0) continue;
@@ -1243,7 +1230,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   }
 
   if (metricKey === 'precipitation' && aggregateSeries.length > 0) {
-    const precipMaxPoints = getDailyPrecipMaxMarkers(aggregateSeries);
+    const precipMaxPoints = getDailyMaxMarkers(aggregateSeries);
     if (precipMaxPoints.length > 0) {
       markerDatasets.push({
         type: 'line',
@@ -1266,7 +1253,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   }
 
   if (metricKey === 'uv_index' && aggregateSeries.length > 0) {
-    const uvMaxPoints = getDailyUvMaxMarkers(aggregateSeries);
+    const uvMaxPoints = getDailyMaxMarkers(aggregateSeries);
     if (uvMaxPoints.length > 0) {
       markerDatasets.push({
         type: 'line',
