@@ -117,37 +117,22 @@
 
         </div>
 
-        <!-- ─── Moon phase ────────────────────────────────── -->
-        <div class="moon-section glass-inner">
-          <div class="moon-header">
+        <!-- ─── Moon phase + Air quality side by side ──── -->
+        <div class="moon-aqi-row">
+          <!-- Moon phase -->
+          <div class="moon-aqi-card glass-inner">
             <span class="stat-label">Mondphase</span>
-            <span class="moon-name" id="moonPhaseName">–</span>
-          </div>
-          <div class="moon-display">
             <canvas id="moonCanvas" width="56" height="56" aria-label="Mondphase"></canvas>
-            <div class="moon-info">
-              <span class="moon-illumination" id="moonIllumination">–</span>
-            </div>
+            <span class="moon-name" id="moonPhaseName">–</span>
+            <span class="moon-illumination" id="moonIllumination">–</span>
           </div>
-        </div>
-
-        <!-- ─── Air quality scale ─────────────────────────── -->
-        <div class="aqi-section glass-inner">
-          <div class="aqi-header">
-            <span class="stat-label">Luftqualität (AQI)</span>
+          <!-- Air quality ring -->
+          <div class="moon-aqi-card glass-inner">
+            <span class="stat-label">Luftqualität</span>
+            <canvas id="aqiRingCanvas" width="56" height="56" aria-label="Luftqualität (AQI)"></canvas>
             <span class="aqi-value" id="aqiValue">–</span>
+            <span class="aqi-desc" id="aqiDesc">–</span>
           </div>
-          <div class="aqi-bar-wrap">
-            <div class="aqi-gradient-bar">
-              <div class="aqi-marker-line" id="aqiMarker" style="left:0%"></div>
-            </div>
-            <div class="aqi-labels">
-              <span>Gut</span>
-              <span>Mittel</span>
-              <span>Schlecht</span>
-            </div>
-          </div>
-          <span class="aqi-desc" id="aqiDesc">–</span>
         </div>
         <p id="status" class="status">Bereit.</p>
 
@@ -155,7 +140,8 @@
 
       <!-- ─── Charts ───────────────────────────────────────── -->
       <main class="charts-main">
-        <div class="charts-wrapper glass">
+        <div class="charts-wrapper glass" id="chartsWrapper">
+          <div id="globalNowBar" class="global-now-bar" aria-hidden="true"></div>
           <section class="chart-section">
             <h2>Temperatur (°C)</h2>
             <canvas id="tempChart"></canvas>

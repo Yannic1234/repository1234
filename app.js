@@ -879,6 +879,8 @@ const dayNightPlugin = {
     const nightAlpha = NIGHT_OVERLAY_ALPHA_BY_CHART[chart.canvas?.id] ?? 0.20;
     ctx.fillStyle = `rgba(0, 0, 0, ${nightAlpha})`;
 
+    const nightBands = [];
+
     for (const { sunrise, sunset } of cachedSunEvents) {
       const dayMidnight = new Date(sunrise);
       dayMidnight.setHours(0, 0, 0, 0);
@@ -891,6 +893,7 @@ const dayNightPlugin = {
         const x1 = xScale.getPixelForValue(nightStartMs);
         const x2 = xScale.getPixelForValue(nightEndMs);
         ctx.fillRect(x1, top, x2 - x1, bottom - top);
+        nightBands.push({ x1, x2 });
       }
 
       // After sunset band
@@ -900,8 +903,24 @@ const dayNightPlugin = {
         const x1 = xScale.getPixelForValue(eveningStartMs);
         const x2 = xScale.getPixelForValue(eveningEndMs);
         ctx.fillRect(x1, top, x2 - x1, bottom - top);
+        nightBands.push({ x1, x2 });
       }
     }
+
+    // Draw moon symbols in the centre of each night band
+    const midY = (top + bottom) / 2;
+    const minBandWidth = 28;
+    ctx.font = '12px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.60;
+    for (const { x1, x2 } of nightBands) {
+      if (x2 - x1 >= minBandWidth) {
+        ctx.fillText('🌙', (x1 + x2) / 2, midY);
+      }
+    }
+    ctx.globalAlpha = 1.0;
+
     ctx.restore();
   }
 };
@@ -1269,8 +1288,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         fill: false,
         valueBadge: true,
         valueBadgeFormatter: formatUvBadge,
-        valueBadgeBackgroundColor: 'rgba(255, 176, 123, 0.98)',
-        valueBadgeTextColor: '#4a1f00'
+        valueBadgeNoBackground: true,
+        valueBadgeTextColor: '#ffffff'
       });
     }
   }
@@ -1304,7 +1323,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       ticks: {
         color: theme.tickColor,
         font: { size: 11 },
-        padding: 8
+        padding: 8,
+        ...(metricKey === 'temperature_2m' ? { count: 8 } : {})
       },
       border: { dash: [4, 4] },
       ...(metricKey === 'temperature_2m'
@@ -1328,7 +1348,6 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       plugins: [
         dayNightPlugin,
-        nowLinePlugin,
         valueBadgePlugin,
         {
           id: 'noDataLabel',
@@ -1394,9 +1413,47 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       scales: sharedScales
     },
-    plugins: [dayNightPlugin, nowLinePlugin, valueBadgePlugin]
+    plugins: [dayNightPlugin, valueBadgePlugin]
   });
 }
+
+// ─── Global "Jetzt" bar spanning all charts ───────────────────────────────────
+
+function updateGlobalNowBar() {
+  const bar = document.getElementById('globalNowBar');
+  if (!bar) return;
+
+  const chart = charts['tempChart'] || charts['rainChart'] || charts['uvChart'];
+  if (!chart) { bar.style.display = 'none'; return; }
+
+  const xScale = chart.scales?.x;
+  const chartArea = chart.chartArea;
+  if (!xScale || !chartArea) { bar.style.display = 'none'; return; }
+
+  const now = Date.now();
+  if (now < xScale.min || now > xScale.max) { bar.style.display = 'none'; return; }
+
+  const canvas = chart.canvas;
+  const wrapperEl = document.getElementById('chartsWrapper');
+  if (!wrapperEl) { bar.style.display = 'none'; return; }
+
+  // xScale.getPixelForValue returns coordinates in Chart.js's drawing space,
+  // which equals CSS pixels (Chart.js scales canvas.width by devicePixelRatio
+  // and applies the same scaling to the 2D context transform).
+  const nowPxInCanvas = xScale.getPixelForValue(now);
+  const canvasRect  = canvas.getBoundingClientRect();
+  const wrapperRect = wrapperEl.getBoundingClientRect();
+
+  const nowXInWrapper = (canvasRect.left - wrapperRect.left) + nowPxInCanvas;
+
+  bar.style.left    = `${nowXInWrapper}px`;
+  bar.style.display = 'block';
+}
+
+// Refresh the bar every 30 s so it stays accurate as time passes
+setInterval(updateGlobalNowBar, 30_000);
+// Also refresh on resize
+window.addEventListener('resize', updateGlobalNowBar, { passive: true });
 
 async function loadAndRender() {
   try {
@@ -1431,6 +1488,9 @@ async function loadAndRender() {
     renderOverlayChart('tempChart', 'Temperatur', available, 'temperature_2m');
     renderOverlayChart('rainChart', 'Regen',      available, 'precipitation');
     renderOverlayChart('uvChart',   'UV-Index',   available, 'uv_index');
+
+    // Small delay so Chart.js finishes layout before we read chartArea
+    requestAnimationFrame(updateGlobalNowBar);
 
     setStatus(`Fertig: Vorhersage aktualisiert für ${location.label}.`);
   } catch (error) {
@@ -1546,6 +1606,49 @@ const AQI_LEVELS = [
   { max: Infinity, label: 'Extrem schlecht', color: '#c084fc' }
 ];
 
+// ─── Air quality ring diagram ─────────────────────────────────────────────────
+
+function drawAQIRing(aqi) {
+  const canvas = document.getElementById('aqiRingCanvas');
+  if (!canvas) return;
+  const ctx  = canvas.getContext('2d');
+  const size = canvas.width; // 56
+  const cx   = size / 2;
+  const cy   = size / 2;
+  const r    = size / 2 - 5;
+  const lw   = 6;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Background ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = lw;
+  ctx.stroke();
+
+  const level   = AQI_LEVELS.find((l) => aqi <= l.max) ?? AQI_LEVELS.at(-1);
+  const maxAQI  = 150;
+  const fraction = Math.min(1, Math.max(0, aqi / maxAQI));
+  const startAngle = -Math.PI / 2;
+  const endAngle   = startAngle + fraction * Math.PI * 2;
+
+  // Coloured arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startAngle, endAngle);
+  ctx.strokeStyle = level.color;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // AQI value text in centre
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 13px ${Chart.defaults.font.family ?? 'sans-serif'}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(Math.round(aqi)), cx, cy);
+}
+
 async function fetchAndDisplayAQI(coords) {
   try {
     const params = new URLSearchParams({
@@ -1560,133 +1663,51 @@ async function fetchAndDisplayAQI(coords) {
     const aqi  = data?.current?.european_aqi;
     if (!Number.isFinite(aqi)) return;
 
-    // Scale: European AQI 0–150 maps to 0–100% of the bar.
-    // Values above 150 are extremely poor; they clamp to the right edge.
-    const pct    = Math.min(100, Math.max(0, (aqi / 150) * 100));
     const level  = AQI_LEVELS.find((l) => aqi <= l.max) ?? AQI_LEVELS.at(-1);
 
     setSidebarValue('aqiValue', String(Math.round(aqi)));
     setSidebarValue('aqiDesc',  level.label);
     document.body.style.setProperty('--aqi-accent', level.color);
-    const markerEl = document.getElementById('aqiMarker');
-    if (markerEl) markerEl.style.left = `${pct}%`;
+    drawAQIRing(aqi);
   } catch {
     // AQI is non-critical; silently ignore errors
   }
 }
 
-// ─── Liquid glass reflection (mouse position / device gyroscope) ─────────────
+// ─── Liquid glass reflection (static – mouse-based animation removed) ─────────
 //
-// Tracks the pointer (or device tilt on mobile) and updates --reflex-x /
-// --reflex-y on every reflective card so the
-// CSS ::before gradients render a plausible specular highlight at the correct
-// position relative to each card surface.
+// Applies a one-time static specular highlight to each reflective card.
+// Mouse-tracking and device-orientation listeners have been removed to avoid
+// distracting mouse-position-dependent animations.
 
 (function initGlassReflex() {
-  // Viewport-space target + smoothed current position
-  let targetX  = window.innerWidth  * 0.35;
-  let targetY  = window.innerHeight * 0.28;
-  let currentX = targetX;
-  let currentY = targetY;
-  let rafId    = null;
+  const staticX = window.innerWidth  * 0.35;
+  const staticY = window.innerHeight * 0.28;
 
-  // Cache element list once (DOM is static after boot)
-  let els = null;
-  function getEls() {
-    if (!els) els = [...document.querySelectorAll('.glass, .glass-inner, .sidebar-hero, .stat-card')];
-    return els;
-  }
-
-  // Lerp convergence threshold in pixels: below this the animation is stopped
-  const REFLEX_THRESHOLD = 0.4;
-  // Horizontal input influences reflection angle slightly stronger than vertical.
   const REFLEX_ANGLE_X_FACTOR = 12;
   const REFLEX_ANGLE_Y_FACTOR = 8;
 
-  // Write per-element CSS vars: position of the light source relative to each card
   function applyReflex(vx, vy) {
-    for (const el of getEls()) {
+    const els = document.querySelectorAll('.glass, .glass-inner, .sidebar-hero, .stat-card');
+    for (const el of els) {
       const r = el.getBoundingClientRect();
       const localX = vx - r.left;
       const localY = vy - r.top;
-      const pctX = r.width > 0 ? Math.max(0, Math.min(100, (localX / r.width) * 100)) : 40;
+      const pctX = r.width  > 0 ? Math.max(0, Math.min(100, (localX / r.width)  * 100)) : 40;
       const pctY = r.height > 0 ? Math.max(0, Math.min(100, (localY / r.height) * 100)) : 28;
       const nx = (pctX - 50) / 50;
       const ny = (pctY - 50) / 50;
       const angle = (nx * REFLEX_ANGLE_X_FACTOR - ny * REFLEX_ANGLE_Y_FACTOR).toFixed(2);
-      el.style.setProperty('--reflex-x', `${localX.toFixed(1)}px`);
-      el.style.setProperty('--reflex-y', `${localY.toFixed(1)}px`);
+      el.style.setProperty('--reflex-x',     `${localX.toFixed(1)}px`);
+      el.style.setProperty('--reflex-y',     `${localY.toFixed(1)}px`);
       el.style.setProperty('--reflex-x-pct', `${pctX.toFixed(2)}%`);
       el.style.setProperty('--reflex-y-pct', `${pctY.toFixed(2)}%`);
       el.style.setProperty('--reflex-angle', `${angle}deg`);
     }
   }
 
-  function lerp(a, b, t) { return a + (b - a) * t; }
-
-  function tick() {
-    currentX = lerp(currentX, targetX, 0.10);
-    currentY = lerp(currentY, targetY, 0.10);
-    applyReflex(currentX, currentY);
-    if (Math.abs(targetX - currentX) > REFLEX_THRESHOLD || Math.abs(targetY - currentY) > REFLEX_THRESHOLD) {
-      rafId = requestAnimationFrame(tick);
-    } else {
-      currentX = targetX;
-      currentY = targetY;
-      applyReflex(currentX, currentY);
-      rafId = null;
-    }
-  }
-
-  function setTarget(x, y) {
-    targetX = x;
-    targetY = y;
-    if (!rafId) rafId = requestAnimationFrame(tick);
-  }
-
-  // ── Mouse / pointer ────────────────────────────────────────────────────────
-  document.addEventListener('mousemove', (e) => {
-    setTarget(e.clientX, e.clientY);
-  }, { passive: true });
-
-  // ── Device orientation (mobile / tablet gyroscope) ──────────────────────
-  const handleOrientation = (e) => {
-    if (e.gamma == null) return;
-    const beta  = Math.max(-90, Math.min(90, e.beta  ?? 0));
-    const gamma = Math.max(-90, Math.min(90, e.gamma ?? 0));
-    setTarget(
-      window.innerWidth  * (0.5 + (gamma / 90) * 0.5),
-      window.innerHeight * (0.5 + (beta  / 90) * 0.35)
-    );
-  };
-
-  if (typeof window.DeviceOrientationEvent !== 'undefined') {
-    // iOS 13+ requires an explicit permission prompt triggered by a user gesture.
-    // Attaching to the load button (primary interaction point) keeps the prompt
-    // predictable rather than firing on any arbitrary document click.
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      const triggerEl = document.getElementById('loadBtn') ?? document;
-      triggerEl.addEventListener('click', function reqPerm() {
-        DeviceOrientationEvent.requestPermission()
-          .then((state) => {
-            if (state === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation, { passive: true });
-            } else {
-              console.info('[glass-reflex] DeviceOrientation permission denied – tilt effect disabled.');
-            }
-          })
-          .catch((err) => {
-            console.info('[glass-reflex] DeviceOrientation permission request failed:', err);
-          });
-        triggerEl.removeEventListener('click', reqPerm);
-      }, { once: true });
-    } else {
-      window.addEventListener('deviceorientation', handleOrientation, { passive: true });
-    }
-  }
-
-  // Initial paint so cards aren't blank before first interaction
-  applyReflex(currentX, currentY);
+  // Apply once so cards aren't blank on load
+  applyReflex(staticX, staticY);
 })();
 
 // ─── Event listeners & boot ───────────────────────────────────────────────────
