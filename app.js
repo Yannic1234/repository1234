@@ -493,11 +493,16 @@ async function geocodeLocation(query) {
     throw new Error('Standort nicht gefunden.');
   }
 
+  const city = bestMatch.name;
   const region = bestMatch.admin1;
-  const parts = [bestMatch.name, region, bestMatch.country].filter(Boolean);
+  const country = bestMatch.country;
+  const parts = [city, region, country].filter(Boolean);
   return {
     latitude: bestMatch.latitude,
     longitude: bestMatch.longitude,
+    city,
+    region,
+    country,
     label: parts.join(', ')
   };
 }
@@ -572,7 +577,18 @@ function updateSidebarStats(data, locationLabel) {
   const cur   = data?.current ?? {};
   const daily = data?.daily   ?? {};
 
-  if (locationLabel) setSidebarValue('locationName', locationLabel);
+  if (locationLabel) {
+    if (typeof locationLabel === 'object') {
+      const city = locationLabel.city ?? locationLabel.label ?? '';
+      const metaParts = [locationLabel.region, locationLabel.country].filter(Boolean);
+      setSidebarValue('locationName', city || '–');
+      setSidebarValue('locationMeta', metaParts.join(', ') || '–');
+    } else {
+      const parts = String(locationLabel).split(',').map((part) => part.trim()).filter(Boolean);
+      setSidebarValue('locationName', parts[0] ?? String(locationLabel));
+      setSidebarValue('locationMeta', parts.slice(1).join(', ') || '–');
+    }
+  }
 
   // Temperature
   const temp = cur.temperature_2m;
@@ -623,9 +639,12 @@ function updateSidebarStats(data, locationLabel) {
 
   // UV index
   const uv = cur.uv_index;
+  const isDay = Boolean(cur.is_day ?? 1);
   setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
   let uvColor = 'var(--text)';
-  if (Number.isFinite(uv)) {
+  if (Number.isFinite(uv) && !isDay) {
+    uvColor = 'rgba(245,247,250,0.50)';
+  } else if (Number.isFinite(uv)) {
     const matchedUvColor = UV_INDEX_COLORS.find((entry) => uv >= entry.min);
     uvColor = matchedUvColor ? matchedUvColor.color : 'var(--text)';
   }
@@ -695,7 +714,7 @@ async function applyWeatherBackground(coords) {
     const isDay = Boolean(data?.current?.is_day ?? 1);
     const cls   = weatherCodeToClass(code, isDay);
     setWeatherUI(cls);
-    updateSidebarStats(data, coords.label ?? '');
+    updateSidebarStats(data, coords);
     updateHeroExtras(data);
     updateMoonPhase();
     fetchAndDisplayAQI(coords);
@@ -837,14 +856,18 @@ const dayNightPlugin = {
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea || cachedSunEvents.length === 0) return;
-    const { bottom, left, right } = chartArea;
+    const { top, bottom, left, right } = chartArea;
     const xMin = xScale.min;
     const xMax = xScale.max;
     ctx.save();
 
-    // Draw thin white lines at bottom of chart for each night period
-    const lineHeight = 3;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    const nightAlphaByChart = {
+      tempChart: 0.28,
+      uvChart: 0.24,
+      rainChart: 0.18
+    };
+    const nightAlpha = nightAlphaByChart[chart.canvas?.id] ?? 0.20;
+    ctx.fillStyle = `rgba(0, 0, 0, ${nightAlpha})`;
 
     for (const { sunrise, sunset } of cachedSunEvents) {
       const dayMidnight = new Date(sunrise);
@@ -857,7 +880,7 @@ const dayNightPlugin = {
       if (nightStartMs < nightEndMs) {
         const x1 = xScale.getPixelForValue(nightStartMs);
         const x2 = xScale.getPixelForValue(nightEndMs);
-        ctx.fillRect(x1, bottom - lineHeight, x2 - x1, lineHeight);
+        ctx.fillRect(x1, top, x2 - x1, bottom - top);
       }
 
       // After sunset band
@@ -866,7 +889,7 @@ const dayNightPlugin = {
       if (eveningStartMs < eveningEndMs) {
         const x1 = xScale.getPixelForValue(eveningStartMs);
         const x2 = xScale.getPixelForValue(eveningEndMs);
-        ctx.fillRect(x1, bottom - lineHeight, x2 - x1, lineHeight);
+        ctx.fillRect(x1, top, x2 - x1, bottom - top);
       }
     }
     ctx.restore();
@@ -921,6 +944,46 @@ function getMetricUpperBound(metricKey, datasets, aggregateSeries) {
   if (metricKey === 'precipitation') return Math.max(1, Math.ceil(maxValue * 1.2));
   if (metricKey === 'uv_index') return Math.max(6, Math.ceil(maxValue * 1.15));
   return null;
+}
+
+function getDayKeyForDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function getDailyTemperatureMarkers(aggregateSeries) {
+  const perDay = new Map();
+  for (const point of aggregateSeries) {
+    if (!Number.isFinite(point.mean)) continue;
+    const key = getDayKeyForDate(point.x);
+    if (!key) continue;
+    const existing = perDay.get(key) ?? {
+      max: { x: point.x, y: point.mean },
+      min: { x: point.x, y: point.mean }
+    };
+    if (point.mean > existing.max.y) existing.max = { x: point.x, y: point.mean };
+    if (point.mean < existing.min.y) existing.min = { x: point.x, y: point.mean };
+    perDay.set(key, existing);
+  }
+  return {
+    maxPoints: Array.from(perDay.values()).map((entry) => entry.max),
+    minPoints: Array.from(perDay.values()).map((entry) => entry.min)
+  };
+}
+
+function getDailyUvMaxMarkers(aggregateSeries) {
+  const perDay = new Map();
+  for (const point of aggregateSeries) {
+    if (!Number.isFinite(point.mean) || point.mean <= 0) continue;
+    const key = getDayKeyForDate(point.x);
+    if (!key) continue;
+    const existing = perDay.get(key);
+    if (!existing || point.mean > existing.y) {
+      perDay.set(key, { x: point.x, y: point.mean });
+    }
+  }
+  return Array.from(perDay.values());
 }
 
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
@@ -1026,7 +1089,66 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
           }
         ];
 
-  const datasets = [...aggregateDatasets, ...providerDatasets];
+  const markerDatasets = [];
+  if (metricKey === 'temperature_2m' && aggregateSeries.length > 0) {
+    const { maxPoints, minPoints } = getDailyTemperatureMarkers(aggregateSeries);
+    if (maxPoints.length > 0) {
+      markerDatasets.push({
+        type: 'line',
+        label: 'Tagesmaximum',
+        data: maxPoints,
+        showLine: false,
+        pointRadius: 5.5,
+        pointHoverRadius: 6.5,
+        pointStyle: 'triangle',
+        pointRotation: 0,
+        pointBackgroundColor: 'rgba(255, 215, 120, 0.98)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.2,
+        borderColor: 'transparent',
+        fill: false
+      });
+    }
+    if (minPoints.length > 0) {
+      markerDatasets.push({
+        type: 'line',
+        label: 'Tagestief',
+        data: minPoints,
+        showLine: false,
+        pointRadius: 5.5,
+        pointHoverRadius: 6.5,
+        pointStyle: 'triangle',
+        pointRotation: 180,
+        pointBackgroundColor: 'rgba(149, 198, 255, 0.96)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.2,
+        borderColor: 'transparent',
+        fill: false
+      });
+    }
+  }
+
+  if (metricKey === 'uv_index' && aggregateSeries.length > 0) {
+    const uvMaxPoints = getDailyUvMaxMarkers(aggregateSeries);
+    if (uvMaxPoints.length > 0) {
+      markerDatasets.push({
+        type: 'line',
+        label: 'Tages-UV-Maximum',
+        data: uvMaxPoints,
+        showLine: false,
+        pointRadius: 5,
+        pointHoverRadius: 6,
+        pointStyle: 'rectRot',
+        pointBackgroundColor: 'rgba(255, 176, 123, 0.98)',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.2,
+        borderColor: 'transparent',
+        fill: false
+      });
+    }
+  }
+
+  const datasets = [...aggregateDatasets, ...markerDatasets, ...providerDatasets];
   const yUpperBound = getMetricUpperBound(metricKey, datasets, aggregateSeries);
 
   const sharedScales = {
@@ -1167,8 +1289,8 @@ async function loadAndRender() {
     // Update weather background and sidebar without blocking the main data load
     applyWeatherBackground(location);
 
-    setStatus(`Quellen werden geladen … (${location.label})`);
-    const { available, unavailable } = await loadAvailableSeries(hours, location);
+    setStatus(`Vorhersagedaten werden geladen … (${location.label})`);
+    const { available } = await loadAvailableSeries(hours, location);
 
     if (available.length === 0) {
       throw new Error('Keine verfügbare Wetterquelle lieferte Daten.');
@@ -1178,9 +1300,7 @@ async function loadAndRender() {
     renderOverlayChart('rainChart', 'Regen',      available, 'precipitation');
     renderOverlayChart('uvChart',   'UV-Index',   available, 'uv_index');
 
-    const loadedNames     = available.map((p) => p.label).join(', ');
-    const unavailableText = unavailable.length ? ` | Nicht verfügbar: ${unavailable.join('; ')}` : '';
-    setStatus(`Fertig: ${available.length} Quelle(n) geladen für ${location.label} (${loadedNames})${unavailableText}`);
+    setStatus(`Fertig: Vorhersage aktualisiert für ${location.label}.`);
   } catch (error) {
     setStatus(`Fehler: ${error.message}`);
   }
@@ -1325,8 +1445,8 @@ async function fetchAndDisplayAQI(coords) {
 
 // ─── Liquid glass reflection (mouse position / device gyroscope) ─────────────
 //
-// Tracks the pointer (or device tilt on mobile) and updates --reflex-x /
-// --reflex-y on every .glass, .glass-inner and .sidebar-hero element so the
+  // Tracks the pointer (or device tilt on mobile) and updates --reflex-x /
+  // --reflex-y on every reflective card so the
 // CSS ::before gradients render a plausible specular highlight at the correct
 // position relative to each card surface.
 
@@ -1341,7 +1461,7 @@ async function fetchAndDisplayAQI(coords) {
   // Cache element list once (DOM is static after boot)
   let els = null;
   function getEls() {
-    if (!els) els = [...document.querySelectorAll('.glass, .glass-inner, .sidebar-hero')];
+    if (!els) els = [...document.querySelectorAll('.glass, .glass-inner, .sidebar-hero, .stat-card')];
     return els;
   }
 
@@ -1349,8 +1469,18 @@ async function fetchAndDisplayAQI(coords) {
   function applyReflex(vx, vy) {
     for (const el of getEls()) {
       const r = el.getBoundingClientRect();
-      el.style.setProperty('--reflex-x', `${(vx - r.left).toFixed(1)}px`);
-      el.style.setProperty('--reflex-y', `${(vy - r.top ).toFixed(1)}px`);
+      const localX = vx - r.left;
+      const localY = vy - r.top;
+      const pctX = r.width > 0 ? Math.max(0, Math.min(100, (localX / r.width) * 100)) : 40;
+      const pctY = r.height > 0 ? Math.max(0, Math.min(100, (localY / r.height) * 100)) : 28;
+      const nx = (pctX - 50) / 50;
+      const ny = (pctY - 50) / 50;
+      const angle = (nx * 12 - ny * 8).toFixed(2);
+      el.style.setProperty('--reflex-x', `${localX.toFixed(1)}px`);
+      el.style.setProperty('--reflex-y', `${localY.toFixed(1)}px`);
+      el.style.setProperty('--reflex-x-pct', `${pctX.toFixed(2)}%`);
+      el.style.setProperty('--reflex-y-pct', `${pctY.toFixed(2)}%`);
+      el.style.setProperty('--reflex-angle', `${angle}deg`);
     }
   }
 

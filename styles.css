@@ -734,6 +734,12 @@ body.theme-light #weatherBg.sunny {
       rgba(255, 255, 255, 0.18) 0%,
       rgba(255, 255, 255, 0.06) 50%,
       transparent 75%
+    ),
+    linear-gradient(
+      calc(135deg + var(--reflex-angle, 0deg)),
+      rgba(255,255,255,0.11) 0%,
+      rgba(255,255,255,0.04) 22%,
+      rgba(255,255,255,0.00) 45%
     );
   pointer-events: none;
   will-change: background;
@@ -753,12 +759,19 @@ body.theme-light #weatherBg.sunny {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(
-    ellipse 220px 155px at var(--reflex-x, 40%) var(--reflex-y, 28%),
-    rgba(255, 255, 255, 0.09) 0%,
-    rgba(255, 255, 255, 0.03) 45%,
-    transparent 68%
-  );
+  background:
+    radial-gradient(
+      ellipse 220px 155px at var(--reflex-x, 40%) var(--reflex-y, 28%),
+      rgba(255, 255, 255, 0.09) 0%,
+      rgba(255, 255, 255, 0.03) 45%,
+      transparent 68%
+    ),
+    radial-gradient(
+      ellipse 95px 55px at var(--reflex-x-pct, 40%) var(--reflex-y-pct, 28%),
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.03) 46%,
+      transparent 78%
+    );
   pointer-events: none;
   will-change: background;
 }
@@ -769,8 +782,8 @@ body.theme-light #weatherBg.sunny {
   padding: 1.4rem 1.3rem 1.5rem;
   position: sticky;
   top: 1.5rem;
-  max-height: calc(100vh - 3rem);
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.18) transparent;
   display: flex;
@@ -824,6 +837,18 @@ body.theme-light #weatherBg.sunny {
       rgba(255, 255, 255, 0.16) 0%,
       rgba(255, 255, 255, 0.05) 45%,
       transparent 68%
+    ),
+    radial-gradient(
+      ellipse 130px 82px at var(--reflex-x-pct, 40%) var(--reflex-y-pct, 28%),
+      rgba(255, 255, 255, 0.22) 0%,
+      rgba(255, 255, 255, 0.08) 45%,
+      transparent 78%
+    ),
+    linear-gradient(
+      calc(132deg + var(--reflex-angle, 0deg)),
+      rgba(255,255,255,0.13) 0%,
+      rgba(255,255,255,0.05) 24%,
+      rgba(255,255,255,0.00) 47%
     );
   pointer-events: none;
   will-change: background;
@@ -833,7 +858,8 @@ body.theme-light #weatherBg.sunny {
 @media (prefers-reduced-motion: reduce) {
   .glass::before,
   .glass-inner::before,
-  .sidebar-hero::before {
+  .sidebar-hero::before,
+  .stat-card::before {
     display: none;
   }
 }
@@ -869,12 +895,21 @@ body.theme-light #weatherBg.sunny {
 }
 
 h1 {
-  font-size: clamp(1.45rem, 2.8vw, 2.05rem);
+  font-size: clamp(1.95rem, 4vw, 2.95rem);
   font-weight: 760;
   letter-spacing: -0.035em;
   line-height: 1.15;
   color: var(--text);
   flex: 1 1 auto;
+}
+
+.location-meta {
+  position: relative;
+  font-size: 0.88rem;
+  font-weight: 520;
+  color: var(--text2);
+  line-height: 1.35;
+  margin: -0.05rem 0 0.36rem;
 }
 
 .weather-badge {
@@ -1064,6 +1099,8 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 }
 
 .stat-card {
+  position: relative;
+  overflow: hidden;
   padding: 0.38rem 0.7rem;
   display: flex;
   flex-direction: row;
@@ -1073,6 +1110,21 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.035);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 140px 82px at var(--reflex-x-pct, 40%) var(--reflex-y-pct, 28%),
+      rgba(255,255,255,0.13) 0%,
+      rgba(255,255,255,0.03) 48%,
+      transparent 76%
+    );
 }
 
 .stat-label {
