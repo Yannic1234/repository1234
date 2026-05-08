@@ -911,14 +911,14 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
-function formatFixedOneDecimal(value) {
+function formatCompactOneDecimal(value) {
   return value.toFixed(1).replace(/\.0$/, '');
 }
 
 const TEMPERATURE_BADGE_FORMATTER = (value) => `${Math.round(value)}°C`;
-const UV_BADGE_FORMATTER = (value) => formatFixedOneDecimal(value);
+const UV_BADGE_FORMATTER = (value) => formatCompactOneDecimal(value);
 const DEFAULT_BADGE_FORMATTER = (value) => Number.isFinite(value)
-  ? formatFixedOneDecimal(value)
+  ? formatCompactOneDecimal(value)
   : String(value);
 
 const valueBadgePlugin = {
@@ -929,7 +929,7 @@ const valueBadgePlugin = {
     const BADGE_HEIGHT = 16;
     const BADGE_VERTICAL_OFFSET = 22;
     const BADGE_BORDER_RADIUS = 5;
-    const BADGE_TEXT_VERTICAL_OFFSET_PX = 0.4;
+    const BADGE_TEXT_BASELINE_ADJUSTMENT = 0.4;
     const { ctx } = chart;
     if (!ctx) return;
     ctx.save();
@@ -963,7 +963,7 @@ const valueBadgePlugin = {
         ctx.fill();
 
         ctx.fillStyle = dataset.valueBadgeTextColor ?? '#0f172a';
-        ctx.fillText(text, element.x, y + height / 2 + BADGE_TEXT_VERTICAL_OFFSET_PX);
+        ctx.fillText(text, element.x, y + height / 2 + BADGE_TEXT_BASELINE_ADJUSTMENT);
       });
     });
 
