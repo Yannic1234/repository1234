@@ -6,16 +6,41 @@ const DEFAULT_COORDS = { latitude: 52.52, longitude: 13.405 };
 const DEFAULT_LOCATION_QUERY = 'Berlin';
 const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7'];
 
+// DWD station lookup table (Stationskennung / WMO block station numbers with coordinates)
+const DWD_STATIONS = [
+  { id: '10384', lat: 52.47, lon: 13.40 }, // Berlin-Tempelhof
+  { id: '10147', lat: 53.63, lon: 10.00 }, // Hamburg-Fuhlsbüttel
+  { id: '10865', lat: 48.35, lon: 11.79 }, // München
+  { id: '10487', lat: 51.13, lon: 13.75 }, // Dresden-Klotzsche
+  { id: '10637', lat: 50.05, lon: 8.60 },  // Frankfurt/Main
+  { id: '10513', lat: 50.87, lon: 7.16 },  // Köln/Bonn
+  { id: '10738', lat: 48.69, lon: 9.22 },  // Stuttgart
+  { id: '10469', lat: 51.42, lon: 12.24 }, // Leipzig
+  { id: '10338', lat: 52.46, lon: 9.69 },  // Hannover
+  { id: '10763', lat: 49.50, lon: 11.08 }, // Nürnberg
+  { id: '10224', lat: 53.05, lon: 8.79 },  // Bremen
+  { id: '10429', lat: 51.29, lon: 6.77 },  // Düsseldorf
+  { id: '10446', lat: 51.52, lon: 7.61 },  // Dortmund
+  { id: '10500', lat: 50.98, lon: 10.96 }, // Erfurt
+  { id: '10908', lat: 48.02, lon: 7.83 },  // Freiburg
+  { id: '10857', lat: 48.43, lon: 10.94 }  // Augsburg
+];
+
 const PROVIDERS = [
   {
     id: 'wetteronline',
     label: 'WetterOnline',
-    unavailableReason: 'keine frei dokumentierte API'
+    unavailableReason: 'nur als Python-Bibliothek verfügbar (wetteronline.readthedocs.io), kein direkter Browser-Zugriff'
   },
   {
     id: 'open-meteo',
     label: 'Open-Meteo',
     fetchSeries: fetchOpenMeteoSeries
+  },
+  {
+    id: 'dwd',
+    label: 'DWD (Deutscher Wetterdienst)',
+    fetchSeries: fetchDwdSeries
   },
   {
     id: 'kachelmann',
@@ -38,6 +63,65 @@ let charts = {};
 
 function setStatus(text) {
   statusEl.textContent = text;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function findNearestDwdStation(lat, lon) {
+  return DWD_STATIONS.reduce(
+    (best, s) => {
+      const d = haversineKm(lat, lon, s.lat, s.lon);
+      return d < best.dist ? { ...s, dist: d } : best;
+    },
+    { dist: Infinity }
+  );
+}
+
+async function fetchDwdSeries(hours, coords) {
+  const station = findNearestDwdStation(coords.latitude, coords.longitude);
+  const url = `https://dwd.api.proxy.bund.dev/v30/stationOverviewExtended?stationIds=${station.id}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`DWD HTTP ${res.status}`);
+  const data = await res.json();
+
+  const stationData = data[station.id];
+  if (!stationData?.forecast1) throw new Error('DWD: keine Vorhersagedaten');
+
+  const f = stationData.forecast1;
+  const start = f.start; // Unix ms
+  const step = f.timeStep; // ms between values
+  const temps = f.temperature ?? [];
+  const precip = f.precipitationTotal ?? [];
+
+  // DWD arrays for both fields should have the same length; fall back to temps length if precip is absent
+  const maxLen = Math.min(hours, temps.length, precip.length > 0 ? precip.length : temps.length);
+
+  // DWD API returns values in tenths of the base unit (0.1 °C, 0.1 mm/h)
+  // and uses -999 as a missing-value sentinel
+  const DWD_MISSING = -999;
+
+  return Array.from({ length: maxLen }, (_, i) => {
+    const rawTemp = temps[i];
+    const rawPrecip = precip[i];
+    const temperature_2m =
+      rawTemp != null && rawTemp !== DWD_MISSING ? rawTemp / 10 : null;
+    const precipitation =
+      rawPrecip != null && rawPrecip !== DWD_MISSING && rawPrecip >= 0 ? rawPrecip / 10 : null;
+    return {
+      x: new Date(start + i * step),
+      temperature_2m,
+      precipitation,
+      uv_index: null
+    };
+  }).filter(hasAnyValidMetric);
 }
 
 async function fetchOpenMeteoSeries(hours, coords) {
@@ -70,7 +154,7 @@ async function fetchOpenMeteoSeries(hours, coords) {
 async function geocodeLocation(query) {
   const params = new URLSearchParams({
     name: query,
-    count: '1',
+    count: '10',
     language: 'de',
     format: 'json'
   });
@@ -78,9 +162,17 @@ async function geocodeLocation(query) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Standortsuche fehlgeschlagen (HTTP ${res.status})`);
   const data = await res.json();
-  const bestMatch = data?.results?.[0];
+  const results = data?.results ?? [];
 
-  if (!bestMatch || !Number.isFinite(bestMatch.latitude) || !Number.isFinite(bestMatch.longitude)) {
+  if (results.length === 0) {
+    throw new Error('Standort nicht gefunden.');
+  }
+
+  // Prefer German cities; fall back to first result for international queries
+  const bestMatch =
+    results.find((r) => r.country_code === 'DE') ?? results[0];
+
+  if (!Number.isFinite(bestMatch.latitude) || !Number.isFinite(bestMatch.longitude)) {
     throw new Error('Standort nicht gefunden.');
   }
 
@@ -159,6 +251,17 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     throw new Error(`Keine Datenreihen für ${metricLabel} verfügbar.`);
   }
 
+  // Determine the full time range across all datasets so the x-axis shows all loaded data
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  for (const ds of datasets) {
+    for (const pt of ds.data) {
+      const t = pt.x instanceof Date ? pt.x.getTime() : new Date(pt.x).getTime();
+      if (t < xMin) xMin = t;
+      if (t > xMax) xMax = t;
+    }
+  }
+
   charts[canvasId] = new Chart(ctx, {
     type: 'line',
     data: {
@@ -173,6 +276,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       scales: {
         x: {
           type: 'time',
+          min: xMin === Infinity ? undefined : xMin,
+          max: xMax === -Infinity ? undefined : xMax,
           time: { unit: 'hour', tooltipFormat: 'dd.MM.yyyy HH:mm' }
         }
       }
