@@ -2,9 +2,29 @@ const statusEl = document.getElementById('status');
 const loadBtn = document.getElementById('loadBtn');
 const hoursInput = document.getElementById('hoursInput');
 const locationInput = document.getElementById('locationInput');
-const DEFAULT_COORDS = { latitude: 52.52, longitude: 13.405 };
-const DEFAULT_LOCATION_QUERY = 'Berlin';
-const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7', '#f97316', '#06b6d4', '#84cc16'];
+const DEFAULT_COORDS = { latitude: 51.05, longitude: 13.74 };
+const DEFAULT_LOCATION_QUERY = 'Dresden';
+
+// Cached geocoded location – avoids re-geocoding when only hours change
+let cachedLocation = null;
+
+// Monochromatic line colours (theme-aware); set at render time
+function getLineColors() {
+  const dark = isDarkMode();
+  return dark
+    ? [
+        'rgba(255,255,255,0.90)', 'rgba(255,255,255,0.68)',
+        'rgba(255,255,255,0.50)', 'rgba(255,255,255,0.38)',
+        'rgba(255,255,255,0.28)', 'rgba(255,255,255,0.20)',
+        'rgba(255,255,255,0.14)', 'rgba(255,255,255,0.10)'
+      ]
+    : [
+        'rgba(0,0,0,0.80)', 'rgba(0,0,0,0.60)',
+        'rgba(0,0,0,0.44)', 'rgba(0,0,0,0.32)',
+        'rgba(0,0,0,0.24)', 'rgba(0,0,0,0.17)',
+        'rgba(0,0,0,0.12)', 'rgba(0,0,0,0.08)'
+      ];
+}
 
 // Dash patterns for distinguishing overlapping series
 const DASH_PATTERNS = [
@@ -18,9 +38,39 @@ const DASH_PATTERNS = [
   [6, 4, 2, 4]     // short dash-dot
 ];
 
-// ─── Dark / Light theme helpers ───────────────────────────────────────────────
+// ─── Dark / Light / Auto theme helpers ───────────────────────────────────────
+
+function getActiveTheme() {
+  return localStorage.getItem('theme') ?? 'auto'; // 'auto' | 'light' | 'dark'
+}
+
+function applyTheme(theme) {
+  document.body.classList.remove('theme-light', 'theme-dark');
+  if (theme === 'light') document.body.classList.add('theme-light');
+  if (theme === 'dark')  document.body.classList.add('theme-dark');
+  const icons = { auto: '🌗', light: '☀️', dark: '🌙' };
+  const iconEl = document.getElementById('themeIcon');
+  if (iconEl) iconEl.textContent = icons[theme] ?? '🌗';
+}
+
+function cycleTheme() {
+  const order = ['auto', 'light', 'dark'];
+  const cur   = getActiveTheme();
+  const next  = order[(order.indexOf(cur) + 1) % order.length];
+  localStorage.setItem('theme', next);
+  applyTheme(next);
+  applyChartDefaults();
+  if (Object.values(charts).some(Boolean)) loadAndRender();
+}
+
+// Initialise theme from localStorage on load
+applyTheme(getActiveTheme());
+document.getElementById('themeToggle')?.addEventListener('click', cycleTheme);
 
 function isDarkMode() {
+  const theme = getActiveTheme();
+  if (theme === 'dark')  return true;
+  if (theme === 'light') return false;
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
@@ -484,7 +534,11 @@ function updateSidebarStats(data, locationLabel) {
   const temp = cur.temperature_2m;
   setSidebarValue('currentTempBig', Number.isFinite(temp) ? Math.round(temp) : '–');
 
-  // Wind
+  // Feels like (apparent temperature)
+  const feels = cur.apparent_temperature;
+  setSidebarValue('feelsLike', Number.isFinite(feels) ? `${Math.round(feels)} °C` : '–');
+
+  // Wind – arrow rotated to show direction wind is blowing TOWARD (+180° from source)
   const spd = cur.wind_speed_10m;
   const dir = cur.wind_direction_10m;
   setSidebarValue('windSpeed',  Number.isFinite(spd) ? `${Math.round(spd)} km/h` : '–');
@@ -492,7 +546,9 @@ function updateSidebarStats(data, locationLabel) {
 
   const arrowEl = document.getElementById('windArrow');
   if (arrowEl && Number.isFinite(dir)) {
-    arrowEl.style.transform = `rotate(${dir}deg)`;
+    // Arrow SVG points up (north). Wind direction is meteorological (FROM direction).
+    // Rotate by dir + 180° so the arrow points where the wind is blowing toward.
+    arrowEl.style.transform = `rotate(${dir + 180}deg)`;
   }
 
   // Humidity
@@ -502,6 +558,19 @@ function updateSidebarStats(data, locationLabel) {
   // Pressure
   const pres = cur.surface_pressure;
   setSidebarValue('pressure', Number.isFinite(pres) ? `${Math.round(pres)} hPa` : '–');
+
+  // Visibility (m → km)
+  const vis = cur.visibility;
+  if (Number.isFinite(vis)) {
+    const km = vis / 1000;
+    setSidebarValue('visibility', km >= 10 ? `${Math.round(km)} km` : `${km.toFixed(1)} km`);
+  } else {
+    setSidebarValue('visibility', '–');
+  }
+
+  // Precipitation
+  const precip = cur.precipitation;
+  setSidebarValue('currentPrecip', Number.isFinite(precip) ? `${precip.toFixed(1)} mm/h` : '–');
 
   // Sunrise / sunset
   setSidebarValue('sunrise', formatLocalTime(daily.sunrise?.[0]));
@@ -544,7 +613,7 @@ async function applyWeatherBackground(coords) {
     const params = new URLSearchParams({
       latitude:  String(coords.latitude),
       longitude: String(coords.longitude),
-      current:   'weather_code,is_day,temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure,uv_index',
+      current:   'weather_code,is_day,temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure,uv_index,visibility,precipitation',
       daily:     'sunrise,sunset',
       forecast_days: '1',
       timezone:  'auto'
@@ -557,6 +626,8 @@ async function applyWeatherBackground(coords) {
     const cls   = weatherCodeToClass(code, isDay);
     setWeatherUI(cls);
     updateSidebarStats(data, coords.label ?? '');
+    updateMoonPhase();
+    fetchAndDisplayAQI(coords);
   } catch (err) {
     console.warn('[weather] background fetch failed:', err);
   }
@@ -580,6 +651,7 @@ function setWeatherUI(cls) {
 (function initWeatherBackground() {
   const h = new Date().getHours();
   setWeatherUI(h >= 6 && h < 20 ? 'sunny' : 'night');
+  updateMoonPhase();
 })();
 
 // ─── Vertical midnight / noon grid-line plugin ────────────────────────────────
@@ -681,10 +753,11 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     .map((provider, idx) => {
       const data = getMetricSeries(provider.points, metricKey);
       if (data.length === 0) return null;
+      const colors = getLineColors();
       return {
         label: provider.label,
         data,
-        borderColor: LINE_COLORS[idx % LINE_COLORS.length],
+        borderColor: colors[idx % colors.length],
         borderWidth: 2,
         borderDash: DASH_PATTERNS[idx % DASH_PATTERNS.length],
         fill: false,
@@ -754,8 +827,17 @@ async function loadAndRender() {
     const hours = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
     const query = locationInput.value.trim() || DEFAULT_LOCATION_QUERY;
     setStatus('Standort wird gesucht …');
-    const location = await geocodeLocation(query);
-    locationInput.value = location.label;
+
+    let location;
+    // Reuse cached location if the input text matches the previously resolved label
+    // (prevents re-geocoding when only the hours change)
+    if (cachedLocation && cachedLocation.label === query) {
+      location = cachedLocation;
+    } else {
+      location = await geocodeLocation(query);
+      cachedLocation = location;
+      locationInput.value = location.label;
+    }
 
     // Update weather background and sidebar without blocking the main data load
     applyWeatherBackground(location);
@@ -779,8 +861,149 @@ async function loadAndRender() {
   }
 }
 
-loadBtn.addEventListener('click', loadAndRender);
+// ─── Moon phase ───────────────────────────────────────────────────────────────
+
+const MOON_PHASE_NAMES = [
+  'Neumond', 'Zunehmende Sichel', 'Erstes Viertel', 'Zunehmender Halbmond',
+  'Vollmond', 'Abnehmender Halbmond', 'Letztes Viertel', 'Abnehmende Sichel'
+];
+
+function getMoonPhase(date) {
+  // Known new moon reference (2000-01-06 18:14 UTC)
+  const knownNewMoon = new Date('2000-01-06T18:14:00Z');
+  const lunarCycle   = 29.530588853; // days
+  const daysSince    = (date - knownNewMoon) / 86_400_000;
+  const phase        = ((daysSince % lunarCycle) + lunarCycle) % lunarCycle;
+  return phase; // 0 = new moon, ~14.77 = full moon, 29.53 = new moon again
+}
+
+function getMoonPhaseName(phase) {
+  const lunarCycle = 29.530588853;
+  const fraction   = phase / lunarCycle; // 0–1
+  const idx = Math.round(fraction * 8) % 8;
+  return MOON_PHASE_NAMES[idx];
+}
+
+function drawMoonCanvas(phase) {
+  const canvas = document.getElementById('moonCanvas');
+  if (!canvas) return;
+  const ctx  = canvas.getContext('2d');
+  const size = canvas.width; // 56
+  const cx   = size / 2;
+  const cy   = size / 2;
+  const r    = size / 2 - 2;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Background circle (dark)
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(8, 8, 24, 0.75)';
+  ctx.fill();
+
+  const lunarCycle  = 29.530588853;
+  const fraction    = phase / lunarCycle; // 0–1
+  const illuminated = (1 - Math.cos(fraction * Math.PI * 2)) / 2; // 0–1
+
+  if (illuminated > 0.01) {
+    ctx.save();
+    // Clip to circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+
+    const isWaxing = fraction <= 0.5;
+    const angle    = fraction * Math.PI * 2;
+
+    ctx.beginPath();
+    if (isWaxing) {
+      // Right half (terminator moves left → right)
+      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
+      const tx = r * Math.cos(angle);
+      ctx.ellipse(cx + tx, cy, Math.abs(tx) || 0.1, r, 0, Math.PI / 2, -Math.PI / 2, true);
+    } else {
+      // Left half (terminator moves right → left)
+      ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, false);
+      const tx = r * Math.cos(angle);
+      ctx.ellipse(cx + tx, cy, Math.abs(tx) || 0.1, r, 0, -Math.PI / 2, Math.PI / 2, true);
+    }
+    ctx.fillStyle = 'rgba(255, 252, 210, 0.92)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function updateMoonPhase() {
+  const phase      = getMoonPhase(new Date());
+  const phaseName  = getMoonPhaseName(phase);
+  const lunarCycle = 29.530588853;
+  const fraction   = phase / lunarCycle;
+  const illuminated = Math.round((1 - Math.cos(fraction * Math.PI * 2)) / 2 * 100);
+
+  setSidebarValue('moonPhaseName',    phaseName);
+  setSidebarValue('moonIllumination', `${illuminated} % beleuchtet`);
+  drawMoonCanvas(phase);
+}
+
+// ─── Air quality ──────────────────────────────────────────────────────────────
+
+const AQI_LEVELS = [
+  { max: 20,  label: 'Sehr gut',    color: '#4ade80' },
+  { max: 40,  label: 'Gut',         color: '#a3e635' },
+  { max: 60,  label: 'Mäßig',       color: '#facc15' },
+  { max: 80,  label: 'Schlecht',    color: '#fb923c' },
+  { max: 100, label: 'Sehr schlecht', color: '#f87171' },
+  { max: Infinity, label: 'Extrem schlecht', color: '#c084fc' }
+];
+
+async function fetchAndDisplayAQI(coords) {
+  try {
+    const params = new URLSearchParams({
+      latitude:  String(coords.latitude),
+      longitude: String(coords.longitude),
+      current:   'european_aqi'
+    });
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?${params}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    const aqi  = data?.current?.european_aqi;
+    if (!Number.isFinite(aqi)) return;
+
+    // Clamp to 0–150 for marker placement
+    const pct    = Math.min(100, Math.max(0, (aqi / 150) * 100));
+    const level  = AQI_LEVELS.find((l) => aqi <= l.max) ?? AQI_LEVELS.at(-1);
+
+    setSidebarValue('aqiValue', String(Math.round(aqi)));
+    setSidebarValue('aqiDesc',  level.label);
+    const markerEl = document.getElementById('aqiMarker');
+    if (markerEl) markerEl.style.left = `${pct}%`;
+  } catch {
+    // AQI is non-critical; silently ignore errors
+  }
+}
+
+// ─── Event listeners & boot ───────────────────────────────────────────────────
+
+loadBtn.addEventListener('click', () => {
+  // When the user explicitly clicks load, clear cache so location is re-geocoded
+  cachedLocation = null;
+  loadAndRender();
+});
 hoursInput.addEventListener('change', loadAndRender);
 locationInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') loadAndRender();
+  if (e.key === 'Enter') {
+    cachedLocation = null; // force re-geocode on manual entry
+    loadAndRender();
+  }
 });
+
+// Auto-load on page start with the default location (Dresden)
+loadAndRender();

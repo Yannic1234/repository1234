@@ -10,29 +10,41 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div id="weatherBg"></div>
+    <!-- Animated weather background with layered effects -->
+    <div id="weatherBg">
+      <div class="bg-layer bg-layer-2"></div>
+      <div class="bg-layer bg-layer-3"></div>
+    </div>
+
+    <!-- Theme toggle: auto / light / dark -->
+    <button id="themeToggle" class="theme-toggle" title="Theme wechseln" aria-label="Theme wechseln">
+      <span id="themeIcon">🌗</span>
+    </button>
 
     <div class="app-layout">
 
       <!-- ─── Sidebar ──────────────────────────────────────── -->
       <aside class="sidebar glass">
 
-        <div class="sidebar-header">
-          <h1 id="locationName">Wettervorhersage</h1>
-          <div id="weatherIndicator" class="weather-badge hidden">
-            <span id="weatherIcon"></span>
-            <span id="weatherLabel"></span>
+        <!-- Hero: location name + temperature (shown immediately, top-left) -->
+        <div class="sidebar-hero">
+          <div class="sidebar-header">
+            <h1 id="locationName">Dresden</h1>
+            <div id="weatherIndicator" class="weather-badge hidden">
+              <span id="weatherIcon"></span>
+              <span id="weatherLabel"></span>
+            </div>
           </div>
-        </div>
 
-        <div class="current-temp-row">
-          <span class="temp-big" id="currentTempBig">–</span>
-          <span class="temp-unit">°C</span>
-        </div>
+          <div class="current-temp-row">
+            <span class="temp-big" id="currentTempBig">–</span>
+            <span class="temp-unit">°C</span>
+          </div>
 
-        <div class="location-controls">
-          <input id="locationInput" type="search" placeholder="Ort eingeben …" value="Berlin" autocomplete="off" />
-          <button id="loadBtn" title="Vorhersage laden">↺</button>
+          <div class="feels-like-row">
+            <span class="feels-label">Gefühlt</span>
+            <span class="feels-value" id="feelsLike">–</span>
+          </div>
         </div>
 
         <div class="hours-row">
@@ -45,17 +57,17 @@
 
         <p id="status" class="status">Bereit.</p>
 
-        <!-- ─── Wetter-Stats ──────────────────────────────── -->
+        <!-- ─── Stats grid (all square) ──────────────────── -->
         <div class="stats-grid">
 
-          <div class="stat-card glass-inner stat-wind-card">
+          <div class="stat-card glass-inner">
             <span class="stat-label">Wind</span>
             <div class="stat-wind-row">
               <svg id="windArrow" class="wind-svg" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2.2"
                    stroke-linecap="round" stroke-linejoin="round"
                    aria-hidden="true">
-                <!-- Arrow pointing up = FROM north; rotated by JS to match wind_direction -->
+                <!-- Arrow pointing up; rotated by JS: 0° = from north, +180° for "blowing toward" -->
                 <line x1="12" y1="20" x2="12" y2="4"/>
                 <polyline points="5 11 12 4 19 11"/>
               </svg>
@@ -65,7 +77,7 @@
           </div>
 
           <div class="stat-card glass-inner">
-            <span class="stat-label">Luftfeuchtigkeit</span>
+            <span class="stat-label">Feuchtigkeit</span>
             <span class="stat-value" id="humidity">–</span>
           </div>
 
@@ -75,12 +87,17 @@
           </div>
 
           <div class="stat-card glass-inner">
-            <span class="stat-label">Sonnenaufgang</span>
+            <span class="stat-label">Sichtweite</span>
+            <span class="stat-value" id="visibility">–</span>
+          </div>
+
+          <div class="stat-card glass-inner">
+            <span class="stat-label">Aufgang</span>
             <span class="stat-value" id="sunrise">–</span>
           </div>
 
           <div class="stat-card glass-inner">
-            <span class="stat-label">Sonnenuntergang</span>
+            <span class="stat-label">Untergang</span>
             <span class="stat-value" id="sunset">–</span>
           </div>
 
@@ -89,7 +106,46 @@
             <span class="stat-value" id="currentUV">–</span>
           </div>
 
+          <div class="stat-card glass-inner">
+            <span class="stat-label">Niederschlag</span>
+            <span class="stat-value" id="currentPrecip">–</span>
+          </div>
+
         </div>
+
+        <!-- ─── Moon phase ────────────────────────────────── -->
+        <div class="moon-section glass-inner">
+          <div class="moon-header">
+            <span class="stat-label">Mondphase</span>
+            <span class="moon-name" id="moonPhaseName">–</span>
+          </div>
+          <div class="moon-display">
+            <canvas id="moonCanvas" width="56" height="56" aria-label="Mondphase"></canvas>
+            <div class="moon-info">
+              <span class="moon-illumination" id="moonIllumination">–</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─── Air quality scale ─────────────────────────── -->
+        <div class="aqi-section glass-inner">
+          <div class="aqi-header">
+            <span class="stat-label">Luftqualität (AQI)</span>
+            <span class="aqi-value" id="aqiValue">–</span>
+          </div>
+          <div class="aqi-bar-wrap">
+            <div class="aqi-gradient-bar">
+              <div class="aqi-marker-line" id="aqiMarker" style="left:0%"></div>
+            </div>
+            <div class="aqi-labels">
+              <span>Gut</span>
+              <span>Mittel</span>
+              <span>Schlecht</span>
+            </div>
+          </div>
+          <span class="aqi-desc" id="aqiDesc">–</span>
+        </div>
+
       </aside>
 
       <!-- ─── Charts ───────────────────────────────────────── -->
@@ -108,6 +164,15 @@
         </section>
       </main>
 
+    </div>
+
+    <!-- ─── Bottom search bar (centered) ─────────────────────── -->
+    <div class="bottom-bar">
+      <div class="location-search-wrap glass">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input id="locationInput" type="search" placeholder="Ort eingeben …" value="Dresden" autocomplete="off" />
+        <button id="loadBtn" title="Vorhersage laden">↺</button>
+      </div>
     </div>
 
     <script type="module" src="app.js"></script>
