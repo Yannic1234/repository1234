@@ -896,6 +896,70 @@ const dayNightPlugin = {
   }
 };
 
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+const valueBadgePlugin = {
+  id: 'valueBadge',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    if (!ctx) return;
+    ctx.save();
+    ctx.font = `600 10px ${Chart.defaults.font.family}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      if (!dataset?.valueBadge || !Array.isArray(dataset.data)) return;
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (!meta || meta.hidden) return;
+
+      dataset.data.forEach((point, pointIndex) => {
+        const element = meta.data?.[pointIndex];
+        const rawValue = point?.y;
+        if (!element || !Number.isFinite(rawValue)) return;
+
+        const formatter = typeof dataset.valueBadgeFormatter === 'function'
+          ? dataset.valueBadgeFormatter
+          : (value) => String(value);
+        const text = formatter(rawValue);
+        if (!text) return;
+        const metrics = ctx.measureText(text);
+        const width = Math.max(26, metrics.width + 10);
+        const height = 16;
+        const x = element.x - width / 2;
+        const y = element.y - 22;
+
+        ctx.fillStyle = dataset.valueBadgeBackgroundColor ?? 'rgba(255,255,255,0.86)';
+        drawRoundedRect(ctx, x, y, width, height, 5);
+        ctx.fill();
+
+        ctx.fillStyle = dataset.valueBadgeTextColor ?? '#0f172a';
+        ctx.fillText(text, element.x, y + height / 2 + 0.4);
+      });
+    });
+
+    ctx.restore();
+  }
+};
+
+function getWeatherAccentColor() {
+  const cssColor = getComputedStyle(document.body).getPropertyValue('--weather-accent').trim();
+  return cssColor || 'rgba(255, 205, 92, 0.98)';
+}
+
 // ─── Chart rendering ──────────────────────────────────────────────────────────
 
 function computeAggregateSeries(seriesByProvider, metricKey) {
@@ -996,7 +1060,10 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   const xMin = getTodayMidnight();
   const xMax = xMin + 48 * MS_PER_HOUR;
   const theme = getChartTheme();
-  const palette = METRIC_PALETTES[metricKey] ?? METRIC_PALETTES.temperature_2m;
+  const basePalette = METRIC_PALETTES[metricKey] ?? METRIC_PALETTES.temperature_2m;
+  const palette = { ...basePalette };
+  if (metricKey === 'temperature_2m') palette.mean = getWeatherAccentColor();
+  if (metricKey === 'uv_index') palette.mean = 'rgba(255, 255, 255, 0.98)';
   const aggregateSeries = computeAggregateSeries(seriesByProvider, metricKey);
 
   const unitSuffix = {
@@ -1102,15 +1169,14 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         order: 100,
         clip: false,
         showLine: false,
-        pointRadius: 5.5,
-        pointHoverRadius: 6.5,
-        pointStyle: 'triangle',
-        pointRotation: 0,
-        pointBackgroundColor: 'rgba(255, 215, 120, 0.98)',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 1.2,
+        pointRadius: 0,
+        pointHoverRadius: 0,
         borderColor: 'transparent',
-        fill: false
+        fill: false,
+        valueBadge: true,
+        valueBadgeFormatter: (value) => `${Math.round(value)}°C`,
+        valueBadgeBackgroundColor: 'rgba(255, 215, 120, 0.96)',
+        valueBadgeTextColor: '#3b2500'
       });
     }
     if (minPoints.length > 0) {
@@ -1121,15 +1187,14 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         order: 100,
         clip: false,
         showLine: false,
-        pointRadius: 5.5,
-        pointHoverRadius: 6.5,
-        pointStyle: 'triangle',
-        pointRotation: 180,
-        pointBackgroundColor: 'rgba(149, 198, 255, 0.96)',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 1.2,
+        pointRadius: 0,
+        pointHoverRadius: 0,
         borderColor: 'transparent',
-        fill: false
+        fill: false,
+        valueBadge: true,
+        valueBadgeFormatter: (value) => `${Math.round(value)}°C`,
+        valueBadgeBackgroundColor: 'rgba(149, 198, 255, 0.96)',
+        valueBadgeTextColor: '#082a4a'
       });
     }
   }
@@ -1144,14 +1209,14 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         order: 100,
         clip: false,
         showLine: false,
-        pointRadius: 5,
-        pointHoverRadius: 6,
-        pointStyle: 'rectRot',
-        pointBackgroundColor: 'rgba(255, 176, 123, 0.98)',
-        pointBorderColor: '#fff',
-        pointBorderWidth: 1.2,
+        pointRadius: 0,
+        pointHoverRadius: 0,
         borderColor: 'transparent',
-        fill: false
+        fill: false,
+        valueBadge: true,
+        valueBadgeFormatter: (value) => value.toFixed(1).replace(/\.0$/, ''),
+        valueBadgeBackgroundColor: 'rgba(255, 176, 123, 0.98)',
+        valueBadgeTextColor: '#4a1f00'
       });
     }
   }
@@ -1210,6 +1275,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       plugins: [
         dayNightPlugin,
         nowLinePlugin,
+        valueBadgePlugin,
         {
           id: 'noDataLabel',
           afterDraw(chart) {
@@ -1274,7 +1340,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       scales: sharedScales
     },
-    plugins: [dayNightPlugin, nowLinePlugin]
+    plugins: [dayNightPlugin, nowLinePlugin, valueBadgePlugin]
   });
 }
 
