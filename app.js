@@ -58,6 +58,7 @@ const WEATHER_ACCENTS = {
 };
 
 const PRECIPITATION_VALUE_COLOR = 'rgba(125, 198, 255, 0.96)';
+const PRECIPITATION_AXIS_MAX_MM_PER_HOUR = 0.2;
 const UV_INDEX_COLORS = [
   { min: 8, color: '#ff6b57' },
   { min: 6, color: '#ff9f43' },
@@ -1321,7 +1322,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       ...(metricKey === 'temperature_2m'
         ? { afterDataLimits: (scale) => { scale.min = Math.min(scale.min, 0); } }
         : metricKey === 'precipitation'
-          ? { min: 0, max: 0.2 }
+          ? { min: 0, max: PRECIPITATION_AXIS_MAX_MM_PER_HOUR }
           : metricKey === 'uv_index'
             ? { min: 0, suggestedMax: yUpperBound }
             : {})
