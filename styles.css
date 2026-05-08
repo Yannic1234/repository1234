@@ -1,58 +1,275 @@
+/* =====================================================
+   Apple-inspired Weather Dashboard – styles.css
+   ===================================================== */
+
 :root {
-  color-scheme: light dark;
-  font-family: Inter, system-ui, Arial, sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+          system-ui, "Helvetica Neue", Arial, sans-serif;
+  --blue:        #007aff;
+  --blue-hover:  #0071e3;
+  --text:        rgba(255, 255, 255, 0.95);
+  --text2:       rgba(255, 255, 255, 0.58);
+  --text3:       rgba(255, 255, 255, 0.32);
+  --glass-bg:     rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.55),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --radius:    18px;
+  --radius-sm: 10px;
 }
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
 
 body {
   margin: 0;
-  padding: 1.5rem;
-  background: #0b1020;
-  color: #f4f8ff;
+  background: #000;
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
-.container {
-  max-width: 1100px;
-  margin: 0 auto;
+/* ─── Weather Background ─────────────────────────────── */
+
+#weatherBg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  transition: background 3s ease, filter 3s ease;
+  will-change: background;
 }
+
+#weatherBg.sunny {
+  background:
+    radial-gradient(ellipse 55% 45% at 20% 8%,  rgba(255, 205, 55, 0.78) 0%, rgba(255, 110, 20, 0.36) 32%, transparent 62%),
+    radial-gradient(ellipse 65% 55% at 78% 6%,  rgba(255, 155, 30, 0.28) 0%, transparent 52%),
+    linear-gradient(168deg, #1c0e00 0%, #0f1624 52%, #000 100%);
+  animation: sunPulse 7s ease-in-out infinite alternate;
+}
+
+#weatherBg.partly-cloudy {
+  background:
+    radial-gradient(ellipse 42% 32% at 28% 12%, rgba(255, 185, 40, 0.52) 0%, rgba(255, 105, 20, 0.20) 32%, transparent 56%),
+    linear-gradient(162deg, #14100c 0%, #0d1622 50%, #000 100%);
+}
+
+#weatherBg.cloudy {
+  background: linear-gradient(165deg, #101620 0%, #090d18 50%, #030510 100%);
+}
+
+#weatherBg.rainy {
+  background:
+    linear-gradient(185deg, #060f1a 0%, #030810 60%, #000 100%);
+  animation: rainShift 14s ease-in-out infinite alternate;
+}
+
+#weatherBg.snow {
+  background: linear-gradient(175deg, #0a1022 0%, #060c1a 55%, #020410 100%);
+}
+
+#weatherBg.stormy {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 25%, rgba(60, 10, 95, 0.72) 0%, transparent 58%),
+    linear-gradient(180deg, #090010 0%, #030008 62%, #000 100%);
+  animation: stormPulse 6.5s ease-in-out infinite;
+}
+
+#weatherBg.fog {
+  background: linear-gradient(180deg, #131313 0%, #0a0a0a 100%);
+}
+
+#weatherBg.night {
+  background:
+    radial-gradient(ellipse 72% 52% at 50% 0%,  rgba(24, 10, 72, 0.78) 0%, rgba(10, 4, 40, 0.48) 42%, transparent 66%),
+    radial-gradient(ellipse 32% 22% at 82% 10%, rgba(42, 20, 85, 0.42) 0%, transparent 42%),
+    linear-gradient(185deg, #030020 0%, #01000e 42%, #000 100%);
+}
+
+@keyframes sunPulse {
+  from { filter: brightness(0.88) saturate(0.90); }
+  to   { filter: brightness(1.10) saturate(1.12); }
+}
+
+@keyframes rainShift {
+  from { filter: brightness(0.90) hue-rotate(0deg); }
+  to   { filter: brightness(1.06) hue-rotate(10deg); }
+}
+
+@keyframes stormPulse {
+  0%, 84%, 100% { filter: brightness(1.00); }
+  86%           { filter: brightness(1.42); }
+  88%           { filter: brightness(1.00); }
+  90%           { filter: brightness(1.28); }
+  92%           { filter: brightness(1.00); }
+}
+
+/* ─── Layout ─────────────────────────────────────────── */
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+}
+
+/* ─── Typography ─────────────────────────────────────── */
+
+h1 {
+  font-size: clamp(1.7rem, 3.2vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin: 0 0 0.4rem;
+  line-height: 1.1;
+}
+
+.subtitle {
+  color: var(--text2);
+  font-size: 0.97rem;
+  margin: 0 0 2rem;
+  line-height: 1.55;
+}
+
+h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.75rem;
+  color: var(--text);
+}
+
+/* ─── Weather Indicator ──────────────────────────────── */
+
+.weather-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text2);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 0.22rem 0.72rem;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  margin-left: 0.75rem;
+  vertical-align: middle;
+  transition: opacity 0.4s;
+}
+
+.weather-indicator.hidden { display: none; }
+
+/* ─── Controls  (Liquid Glass) ───────────────────────── */
 
 .controls {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
-  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  background: var(--glass-bg);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.3rem;
+  margin-bottom: 0.75rem;
+  box-shadow: var(--glass-shadow);
 }
 
 button {
-  background: #4f46e5;
-  color: white;
-  border: 0;
-  border-radius: 0.6rem;
-  padding: 0.6rem 0.9rem;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.56rem 1.1rem;
   cursor: pointer;
+  font-family: var(--font);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.15s ease, transform 0.10s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.38);
+}
+
+button:hover {
+  background: var(--blue-hover);
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.48);
+}
+
+button:active {
+  transform: scale(0.97);
+  box-shadow: 0 1px 4px rgba(0, 122, 255, 0.25);
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  color: var(--text2);
+  font-weight: 400;
 }
 
 input {
-  margin-left: 0.5rem;
-  width: 5rem;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.42rem 0.65rem;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  -webkit-font-smoothing: antialiased;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-#locationInput {
-  width: 14rem;
+input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.22);
 }
+
+input[type="number"] { width: 5.5rem; }
+#locationInput        { width: 15rem; }
+
+/* ─── Status ─────────────────────────────────────────── */
 
 .status {
-  opacity: 0.9;
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text3);
+  margin: 0.25rem 0 1.25rem;
+  padding: 0.45rem 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid rgba(0, 122, 255, 0.50);
+  line-height: 1.45;
 }
 
+/* ─── Chart Sections  (Liquid Glass) ─────────────────── */
+
 .chart-section {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 0.8rem;
-  padding: 1rem;
-  margin-top: 1rem;
+  background: var(--glass-bg);
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 1.3rem 1.5rem 1rem;
+  margin-top: 1.3rem;
+  box-shadow: var(--glass-shadow);
+  transition: box-shadow 0.3s ease;
+}
+
+.chart-section:hover {
+  box-shadow:
+    0 14px 44px rgba(0, 0, 0, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.20);
 }
 
 canvas {
-  width: 100%;
-  max-height: 320px;
+  width: 100% !important;
+  max-height: 300px;
 }
