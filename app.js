@@ -1323,6 +1323,107 @@ async function fetchAndDisplayAQI(coords) {
   }
 }
 
+// ─── Liquid glass reflection (mouse position / device gyroscope) ─────────────
+//
+// Tracks the pointer (or device tilt on mobile) and updates --reflex-x /
+// --reflex-y on every .glass, .glass-inner and .sidebar-hero element so the
+// CSS ::before gradients render a plausible specular highlight at the correct
+// position relative to each card surface.
+
+(function initGlassReflex() {
+  // Viewport-space target + smoothed current position
+  let targetX  = window.innerWidth  * 0.35;
+  let targetY  = window.innerHeight * 0.28;
+  let currentX = targetX;
+  let currentY = targetY;
+  let rafId    = null;
+
+  // Cache element list once (DOM is static after boot)
+  let els = null;
+  function getEls() {
+    if (!els) els = [...document.querySelectorAll('.glass, .glass-inner, .sidebar-hero')];
+    return els;
+  }
+
+  // Write per-element CSS vars: position of the light source relative to each card
+  function applyReflex(vx, vy) {
+    for (const el of getEls()) {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--reflex-x', `${(vx - r.left).toFixed(1)}px`);
+      el.style.setProperty('--reflex-y', `${(vy - r.top ).toFixed(1)}px`);
+    }
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  // Lerp convergence threshold in pixels: below this the animation is stopped
+  const REFLEX_THRESHOLD = 0.4;
+
+  function tick() {
+    currentX = lerp(currentX, targetX, 0.10);
+    currentY = lerp(currentY, targetY, 0.10);
+    applyReflex(currentX, currentY);
+    if (Math.abs(targetX - currentX) > REFLEX_THRESHOLD || Math.abs(targetY - currentY) > REFLEX_THRESHOLD) {
+      rafId = requestAnimationFrame(tick);
+    } else {
+      currentX = targetX;
+      currentY = targetY;
+      applyReflex(currentX, currentY);
+      rafId = null;
+    }
+  }
+
+  function setTarget(x, y) {
+    targetX = x;
+    targetY = y;
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+
+  // ── Mouse / pointer ────────────────────────────────────────────────────────
+  document.addEventListener('mousemove', (e) => {
+    setTarget(e.clientX, e.clientY);
+  }, { passive: true });
+
+  // ── Device orientation (mobile / tablet gyroscope) ──────────────────────
+  const handleOrientation = (e) => {
+    if (e.gamma == null) return;
+    const beta  = Math.max(-90, Math.min(90, e.beta  ?? 0));
+    const gamma = Math.max(-90, Math.min(90, e.gamma ?? 0));
+    setTarget(
+      window.innerWidth  * (0.5 + (gamma / 90) * 0.5),
+      window.innerHeight * (0.5 + (beta  / 90) * 0.35)
+    );
+  };
+
+  if (typeof window.DeviceOrientationEvent !== 'undefined') {
+    // iOS 13+ requires an explicit permission prompt triggered by a user gesture.
+    // Attaching to the load button (primary interaction point) keeps the prompt
+    // predictable rather than firing on any arbitrary document click.
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const triggerEl = document.getElementById('loadBtn') ?? document;
+      triggerEl.addEventListener('click', function reqPerm() {
+        DeviceOrientationEvent.requestPermission()
+          .then((state) => {
+            if (state === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+            } else {
+              console.info('[glass-reflex] DeviceOrientation permission denied – tilt effect disabled.');
+            }
+          })
+          .catch((err) => {
+            console.info('[glass-reflex] DeviceOrientation permission request failed:', err);
+          });
+        triggerEl.removeEventListener('click', reqPerm);
+      }, { once: true });
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+    }
+  }
+
+  // Initial paint so cards aren't blank before first interaction
+  applyReflex(currentX, currentY);
+})();
+
 // ─── Event listeners & boot ───────────────────────────────────────────────────
 
 loadBtn.addEventListener('click', () => {
