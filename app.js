@@ -581,6 +581,15 @@ function updateSidebarStats(data, locationLabel) {
   setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
 }
 
+// ─── Moon phase constants (needed before initWeatherBackground runs) ──────────
+
+const LUNAR_CYCLE_DAYS = 29.530588853; // mean synodic month in days
+
+const MOON_PHASE_NAMES = [
+  'Neumond', 'Zunehmende Sichel', 'Erstes Viertel', 'Zunehmender Halbmond',
+  'Vollmond', 'Abnehmender Halbmond', 'Letztes Viertel', 'Abnehmende Sichel'
+];
+
 // ─── Weather background ───────────────────────────────────────────────────────
 
 const WEATHER_META = {
@@ -862,13 +871,6 @@ async function loadAndRender() {
 }
 
 // ─── Moon phase ───────────────────────────────────────────────────────────────
-
-const LUNAR_CYCLE_DAYS = 29.530588853; // mean synodic month in days
-
-const MOON_PHASE_NAMES = [
-  'Neumond', 'Zunehmende Sichel', 'Erstes Viertel', 'Zunehmender Halbmond',
-  'Vollmond', 'Abnehmender Halbmond', 'Letztes Viertel', 'Abnehmende Sichel'
-];
 
 function getMoonPhase(date) {
   // Known new moon reference (2000-01-06 18:14 UTC)
