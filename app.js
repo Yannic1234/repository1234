@@ -893,7 +893,10 @@ function computeAggregateSeries(seriesByProvider, metricKey) {
     .sort((a, b) => a[0] - b[0])
     .map(([ts, values]) => {
       const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-      const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+      const varianceDenominator = values.length > 1 ? values.length - 1 : values.length;
+      const variance = varianceDenominator > 0
+        ? values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / varianceDenominator
+        : 0;
       const spread = values.length > 1 ? Math.sqrt(variance) : 0;
       return {
         x: new Date(ts),
@@ -1131,7 +1134,9 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
               const rawValue = item.raw?.y;
               const val = item.parsed.y;
               if (val == null) return null;
-              if (Array.isArray(rawValue)) return ` ${item.dataset.label}: ${rawValue[0].toFixed(1)}–${rawValue[1].toFixed(1)}${suffix}`;
+              if (Array.isArray(rawValue) && rawValue.length >= 2 && rawValue.every(Number.isFinite)) {
+                return ` ${item.dataset.label}: ${rawValue[0].toFixed(1)}–${rawValue[1].toFixed(1)}${suffix}`;
+              }
               return ` ${item.dataset.label}: ${val.toFixed(1)}${suffix}`;
             }
           }
