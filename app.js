@@ -58,7 +58,7 @@ const WEATHER_ACCENTS = {
 };
 
 const PRECIPITATION_VALUE_COLOR = 'rgba(125, 198, 255, 0.96)';
-const PRECIPITATION_AXIS_MAX_MM_PER_HOUR = 0.2;
+const PRECIPITATION_AXIS_MAX_MM_PER_HOUR = 0.5;
 const UV_INDEX_COLORS = [
   { min: 8, color: '#ff6b57' },
   { min: 6, color: '#ff9f43' },
@@ -511,7 +511,8 @@ async function geocodeLocation(query) {
     city,
     region,
     country,
-    label: parts.join(', ')
+    label: parts.join(', '),
+    timezone: bestMatch.timezone ?? null
   };
 }
 
@@ -1430,7 +1431,24 @@ function updateGlobalNowBar() {
   const chartArea = chart.chartArea;
   if (!xScale || !chartArea) { bar.style.display = 'none'; return; }
 
-  const now = Date.now();
+  // Use the location's timezone to compute "now" correctly.
+  // Open-Meteo returns timestamps without timezone suffix (local time), which the
+  // browser parses as browser-local time. To align "now" with those timestamps we
+  // express the current moment as a naïve local-time string in the *location's*
+  // timezone and re-parse it as browser-local time.
+  let now;
+  const tz = cachedLocation?.timezone;
+  if (tz) {
+    try {
+      const localStr = new Date().toLocaleString('sv-SE', { timeZone: tz });
+      now = new Date(localStr.replace(' ', 'T')).getTime();
+    } catch {
+      now = Date.now();
+    }
+  } else {
+    now = Date.now();
+  }
+
   if (now < xScale.min || now > xScale.max) { bar.style.display = 'none'; return; }
 
   const canvas = chart.canvas;
@@ -1446,7 +1464,26 @@ function updateGlobalNowBar() {
 
   const nowXInWrapper = (canvasRect.left - wrapperRect.left) + nowPxInCanvas;
 
+  // Vertical extent: from the top of the tempChart plot area to the bottom of the
+  // uvChart plot area, both converted to chartsWrapper-relative coordinates.
+  const tempChart = charts['tempChart'];
+  const uvChart   = charts['uvChart'];
+  let barTop    = 0;
+  let barBottom = wrapperRect.height;
+
+  if (tempChart?.chartArea) {
+    const r = tempChart.canvas.getBoundingClientRect();
+    barTop = (r.top - wrapperRect.top) + tempChart.chartArea.top;
+  }
+  if (uvChart?.chartArea) {
+    const r = uvChart.canvas.getBoundingClientRect();
+    barBottom = (r.top - wrapperRect.top) + uvChart.chartArea.bottom;
+  }
+
   bar.style.left    = `${nowXInWrapper}px`;
+  bar.style.top     = `${barTop}px`;
+  bar.style.height  = `${Math.max(0, barBottom - barTop)}px`;
+  bar.style.bottom  = 'auto';
   bar.style.display = 'block';
 }
 
