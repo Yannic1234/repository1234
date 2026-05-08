@@ -1,6 +1,6 @@
 /* =====================================================
    Weather Dashboard – styles.css
-   Dark / Light mode + Weather backgrounds
+   Dark / Light / Auto mode + Animated Weather backgrounds
    ===================================================== */
 
 /* ─── Design Tokens ───────────────────────────────── */
@@ -25,6 +25,7 @@
   --input-bg:     rgba(255, 255, 255, 0.10);
   --input-border: rgba(255, 255, 255, 0.20);
   --status-bg:    rgba(255, 255, 255, 0.05);
+  --body-bg:      #000;
 }
 
 @media (prefers-color-scheme: light) {
@@ -40,7 +41,40 @@
     --input-bg:     rgba(255, 255, 255, 0.60);
     --input-border: rgba(0, 0, 0, 0.14);
     --status-bg:    rgba(255, 255, 255, 0.38);
+    --body-bg:      #d0dce8;
   }
+}
+
+/* ─── Manual theme overrides (body class) ─────────── */
+
+body.theme-dark {
+  --text:         rgba(255, 255, 255, 0.95);
+  --text2:        rgba(255, 255, 255, 0.62);
+  --text3:        rgba(255, 255, 255, 0.35);
+  --glass-bg:     rgba(255, 255, 255, 0.10);
+  --glass-inner:  rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.48),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --input-bg:     rgba(255, 255, 255, 0.10);
+  --input-border: rgba(255, 255, 255, 0.20);
+  --status-bg:    rgba(255, 255, 255, 0.05);
+  --body-bg:      #000;
+}
+
+body.theme-light {
+  --text:         rgba(10, 10, 15, 0.88);
+  --text2:        rgba(10, 10, 15, 0.55);
+  --text3:        rgba(10, 10, 15, 0.38);
+  --glass-bg:     rgba(255, 255, 255, 0.52);
+  --glass-inner:  rgba(255, 255, 255, 0.42);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --input-bg:     rgba(255, 255, 255, 0.60);
+  --input-border: rgba(0, 0, 0, 0.14);
+  --status-bg:    rgba(255, 255, 255, 0.38);
+  --body-bg:      #d0dce8;
 }
 
 *,
@@ -56,11 +90,9 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  background: #000;
-}
-
-@media (prefers-color-scheme: light) {
-  body { background: #d0dce8; }
+  background: var(--body-bg);
+  /* Extra bottom padding so content isn't hidden behind bottom-bar */
+  padding-bottom: 5rem;
 }
 
 /* ─── Weather Background ─────────────────────────── */
@@ -71,10 +103,20 @@ body {
   z-index: 0;
   transition: background 3s ease, filter 3s ease;
   will-change: background;
+  overflow: hidden;
 }
 
-/* ── Dark mode backgrounds ── */
+.bg-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 
+/* ══════════════════════════════════════════
+   DARK-MODE WEATHER BACKGROUNDS
+   ══════════════════════════════════════════ */
+
+/* ── Sunny ── */
 #weatherBg.sunny {
   background:
     radial-gradient(ellipse 55% 45% at 20% 8%,  rgba(255,205,55,0.80) 0%, rgba(255,110,20,0.36) 32%, transparent 62%),
@@ -83,25 +125,154 @@ body {
   animation: sunPulse 7s ease-in-out infinite alternate;
 }
 
+/* Rotating sun rays */
+#weatherBg.sunny .bg-layer-2 {
+  background: conic-gradient(
+    from 0deg at 22% 9%,
+    transparent 0%,  transparent 82%,
+    rgba(255,220,60,0.06) 84%, rgba(255,200,30,0.11) 86%,
+    rgba(255,220,60,0.06) 88%, transparent 91%,
+    transparent 94%, rgba(255,215,50,0.07) 96%,
+    rgba(255,200,30,0.10) 98%, transparent 100%
+  );
+  transform-origin: 22% 9%;
+  animation: sunRays 35s linear infinite;
+}
+
+/* Shimmer haze */
+#weatherBg.sunny .bg-layer-3 {
+  background: radial-gradient(ellipse 80% 30% at 22% 9%, rgba(255,230,100,0.10) 0%, transparent 60%);
+  animation: sunHaze 6s ease-in-out infinite alternate;
+}
+
+/* ── Partly cloudy ── */
 #weatherBg.partly-cloudy {
   background:
     radial-gradient(ellipse 42% 32% at 28% 12%, rgba(255,185,40,0.52) 0%, rgba(255,105,20,0.20) 32%, transparent 56%),
     linear-gradient(162deg, #14100c 0%, #0d1622 50%, #000 100%);
 }
 
+#weatherBg.partly-cloudy .bg-layer-2 {
+  width: 300%;
+  height: 160px;
+  top: 4%;
+  left: -100%;
+  background:
+    radial-gradient(ellipse 220px 75px at 18% 50%,  rgba(255,255,255,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 300px 90px at 52% 55%,  rgba(255,255,255,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 180px 65px at 82% 45%,  rgba(255,255,255,0.08) 0%, transparent 70%);
+  animation: cloudDrift1 38s linear infinite;
+}
+
+#weatherBg.partly-cloudy .bg-layer-3 {
+  width: 300%;
+  height: 130px;
+  top: 16%;
+  left: -100%;
+  background:
+    radial-gradient(ellipse 260px 80px at 28% 50%, rgba(255,255,255,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 190px 65px at 68% 55%, rgba(255,255,255,0.06) 0%, transparent 70%);
+  animation: cloudDrift2 55s linear infinite;
+}
+
+/* ── Cloudy ── */
 #weatherBg.cloudy {
   background: linear-gradient(165deg, #101620 0%, #090d18 50%, #030510 100%);
 }
 
+#weatherBg.cloudy .bg-layer-2 {
+  width: 300%;
+  height: 180px;
+  top: 2%;
+  left: -100%;
+  background:
+    radial-gradient(ellipse 280px 90px at 15% 50%,  rgba(180,200,230,0.09) 0%, transparent 70%),
+    radial-gradient(ellipse 340px 100px at 48% 55%, rgba(180,200,230,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 240px 80px at 80% 45%,  rgba(180,200,230,0.08) 0%, transparent 70%);
+  animation: cloudDrift1 45s linear infinite;
+}
+
+#weatherBg.cloudy .bg-layer-3 {
+  width: 300%;
+  height: 140px;
+  top: 18%;
+  left: -100%;
+  background:
+    radial-gradient(ellipse 300px 85px at 25% 50%, rgba(180,200,230,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 220px 70px at 62% 55%, rgba(180,200,230,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 260px 80px at 90% 50%, rgba(180,200,230,0.05) 0%, transparent 70%);
+  animation: cloudDrift2 62s linear infinite;
+}
+
+/* ── Rainy ── */
 #weatherBg.rainy {
   background: linear-gradient(185deg, #060f1a 0%, #030810 60%, #000 100%);
   animation: rainShift 14s ease-in-out infinite alternate;
 }
 
+#weatherBg.rainy .bg-layer-2 {
+  background: repeating-linear-gradient(
+    108deg,
+    transparent 0px,
+    transparent 7px,
+    rgba(130,180,255,0.045) 7.5px,
+    transparent 8.5px
+  );
+  background-size: 35px 70px;
+  animation: rainStreaks 0.65s linear infinite;
+}
+
+#weatherBg.rainy .bg-layer-3 {
+  /* Second rain layer, slightly offset, faster */
+  background: repeating-linear-gradient(
+    112deg,
+    transparent 0px,
+    transparent 10px,
+    rgba(100,160,255,0.03) 10.5px,
+    transparent 11px
+  );
+  background-size: 25px 50px;
+  animation: rainStreaks2 0.45s linear infinite;
+}
+
+/* ── Snow ── */
 #weatherBg.snow {
   background: linear-gradient(175deg, #0a1022 0%, #060c1a 55%, #020410 100%);
 }
 
+#weatherBg.snow .bg-layer-2 {
+  background-image:
+    radial-gradient(circle 1.8px at 8%  12%, rgba(255,255,255,0.70) 0%, transparent 50%),
+    radial-gradient(circle 1.2px at 22% 28%, rgba(255,255,255,0.55) 0%, transparent 50%),
+    radial-gradient(circle 2.2px at 38% 18%, rgba(255,255,255,0.65) 0%, transparent 50%),
+    radial-gradient(circle 1.4px at 54%  8%, rgba(255,255,255,0.50) 0%, transparent 50%),
+    radial-gradient(circle 1.8px at 68% 22%, rgba(255,255,255,0.70) 0%, transparent 50%),
+    radial-gradient(circle 1.2px at 82% 14%, rgba(255,255,255,0.55) 0%, transparent 50%),
+    radial-gradient(circle 2.0px at 93% 30%, rgba(255,255,255,0.60) 0%, transparent 50%),
+    radial-gradient(circle 1.5px at 15% 55%, rgba(255,255,255,0.60) 0%, transparent 50%),
+    radial-gradient(circle 1.0px at 30% 68%, rgba(255,255,255,0.45) 0%, transparent 50%),
+    radial-gradient(circle 1.8px at 47% 48%, rgba(255,255,255,0.65) 0%, transparent 50%),
+    radial-gradient(circle 1.3px at 62% 72%, rgba(255,255,255,0.50) 0%, transparent 50%),
+    radial-gradient(circle 2.0px at 76% 58%, rgba(255,255,255,0.68) 0%, transparent 50%),
+    radial-gradient(circle 1.4px at 88% 80%, rgba(255,255,255,0.55) 0%, transparent 50%);
+  background-size: 100% 220px;
+  animation: snowFall1 9s linear infinite;
+}
+
+#weatherBg.snow .bg-layer-3 {
+  background-image:
+    radial-gradient(circle 1.5px at 5%  35%, rgba(255,255,255,0.55) 0%, transparent 50%),
+    radial-gradient(circle 1.2px at 18% 75%, rgba(255,255,255,0.50) 0%, transparent 50%),
+    radial-gradient(circle 2.0px at 35% 52%, rgba(255,255,255,0.65) 0%, transparent 50%),
+    radial-gradient(circle 1.0px at 52% 85%, rgba(255,255,255,0.40) 0%, transparent 50%),
+    radial-gradient(circle 1.8px at 70% 40%, rgba(255,255,255,0.62) 0%, transparent 50%),
+    radial-gradient(circle 1.3px at 85% 65%, rgba(255,255,255,0.50) 0%, transparent 50%),
+    radial-gradient(circle 1.6px at 96% 50%, rgba(255,255,255,0.55) 0%, transparent 50%);
+  background-size: 100% 160px;
+  animation: snowFall2 6s linear infinite;
+}
+
+/* ── Stormy ── */
 #weatherBg.stormy {
   background:
     radial-gradient(ellipse 60% 40% at 50% 25%, rgba(60,10,95,0.72) 0%, transparent 58%),
@@ -109,10 +280,41 @@ body {
   animation: stormPulse 6.5s ease-in-out infinite;
 }
 
+/* Storm: rain + occasional purple flash */
+#weatherBg.stormy .bg-layer-2 {
+  background: repeating-linear-gradient(
+    106deg,
+    transparent 0px,
+    transparent 6px,
+    rgba(140,120,255,0.04) 6.5px,
+    transparent 7.5px
+  );
+  background-size: 30px 60px;
+  animation: rainStreaks 0.55s linear infinite;
+}
+
+#weatherBg.stormy .bg-layer-3 {
+  background: transparent;
+  animation: lightningFlash 8s ease-in-out infinite;
+}
+
+/* ── Fog ── */
 #weatherBg.fog {
   background: linear-gradient(180deg, #131313 0%, #0a0a0a 100%);
 }
 
+#weatherBg.fog .bg-layer-2 {
+  width: 200%;
+  height: 100%;
+  left: -50%;
+  background:
+    radial-gradient(ellipse 60% 18% at 30% 30%, rgba(200,210,220,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 14% at 70% 55%, rgba(200,210,220,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 55% 16% at 50% 75%, rgba(200,210,220,0.07) 0%, transparent 70%);
+  animation: fogDrift 30s ease-in-out infinite alternate;
+}
+
+/* ── Night ── */
 #weatherBg.night {
   background:
     radial-gradient(ellipse 72% 52% at 50% 0%,  rgba(24,10,72,0.78) 0%, rgba(10,4,40,0.48) 42%, transparent 66%),
@@ -120,7 +322,34 @@ body {
     linear-gradient(185deg, #030020 0%, #01000e 42%, #000 100%);
 }
 
-/* ── Light mode backgrounds ── */
+/* Twinkling stars */
+#weatherBg.night .bg-layer-2 {
+  background-image:
+    radial-gradient(circle 1px at 10% 15%, rgba(255,255,255,0.80) 0%, transparent 50%),
+    radial-gradient(circle 1.2px at 25% 8%,  rgba(255,255,255,0.70) 0%, transparent 50%),
+    radial-gradient(circle 0.8px at 40% 20%, rgba(255,255,255,0.60) 0%, transparent 50%),
+    radial-gradient(circle 1px at 55% 5%,  rgba(255,255,255,0.75) 0%, transparent 50%),
+    radial-gradient(circle 1.2px at 70% 18%, rgba(255,255,255,0.65) 0%, transparent 50%),
+    radial-gradient(circle 0.8px at 83% 10%, rgba(255,255,255,0.70) 0%, transparent 50%),
+    radial-gradient(circle 1px at 92% 25%, rgba(255,255,255,0.55) 0%, transparent 50%),
+    radial-gradient(circle 1.5px at 18% 30%, rgba(255,255,255,0.50) 0%, transparent 50%),
+    radial-gradient(circle 1px at 48% 35%, rgba(255,255,255,0.60) 0%, transparent 50%),
+    radial-gradient(circle 0.8px at 65% 28%, rgba(255,255,255,0.55) 0%, transparent 50%),
+    radial-gradient(circle 1.2px at 78% 38%, rgba(255,255,255,0.65) 0%, transparent 50%),
+    radial-gradient(circle 1px at 5%  40%, rgba(255,255,255,0.50) 0%, transparent 50%);
+  background-size: 100% 100%;
+  animation: starTwinkle 4s ease-in-out infinite alternate;
+}
+
+#weatherBg.night .bg-layer-3 {
+  /* Moon glow */
+  background: radial-gradient(circle 60px at 80% 12%, rgba(255,245,200,0.18) 0%, rgba(255,240,170,0.06) 40%, transparent 70%);
+  animation: moonGlow 8s ease-in-out infinite alternate;
+}
+
+/* ══════════════════════════════════════════
+   LIGHT-MODE WEATHER BACKGROUNDS
+   ══════════════════════════════════════════ */
 
 @media (prefers-color-scheme: light) {
   #weatherBg.sunny {
@@ -165,16 +394,204 @@ body {
       radial-gradient(ellipse 72% 52% at 50% 0%,  rgba(24,10,72,0.65) 0%, rgba(10,4,40,0.38) 42%, transparent 66%),
       linear-gradient(185deg, #0a0828 0%, #080620 42%, #050415 100%);
   }
+
+  #weatherBg.rainy .bg-layer-2 {
+    background: repeating-linear-gradient(
+      108deg,
+      transparent 0px,
+      transparent 7px,
+      rgba(80,120,200,0.06) 7.5px,
+      transparent 8.5px
+    );
+    background-size: 35px 70px;
+    animation: rainStreaks 0.65s linear infinite;
+  }
+
+  #weatherBg.rainy .bg-layer-3 {
+    background: repeating-linear-gradient(
+      112deg,
+      transparent 0px,
+      transparent 10px,
+      rgba(60,100,180,0.04) 10.5px,
+      transparent 11px
+    );
+    background-size: 25px 50px;
+    animation: rainStreaks2 0.45s linear infinite;
+  }
+
+  #weatherBg.snow .bg-layer-2 {
+    background-image:
+      radial-gradient(circle 1.8px at 8%  12%, rgba(180,210,240,0.75) 0%, transparent 50%),
+      radial-gradient(circle 1.2px at 22% 28%, rgba(180,210,240,0.55) 0%, transparent 50%),
+      radial-gradient(circle 2.2px at 38% 18%, rgba(180,210,240,0.65) 0%, transparent 50%),
+      radial-gradient(circle 1.4px at 54%  8%, rgba(180,210,240,0.50) 0%, transparent 50%),
+      radial-gradient(circle 1.8px at 68% 22%, rgba(180,210,240,0.70) 0%, transparent 50%),
+      radial-gradient(circle 1.2px at 82% 14%, rgba(180,210,240,0.55) 0%, transparent 50%),
+      radial-gradient(circle 2.0px at 93% 30%, rgba(180,210,240,0.60) 0%, transparent 50%),
+      radial-gradient(circle 1.5px at 15% 55%, rgba(180,210,240,0.60) 0%, transparent 50%),
+      radial-gradient(circle 1.0px at 30% 68%, rgba(180,210,240,0.45) 0%, transparent 50%),
+      radial-gradient(circle 1.8px at 47% 48%, rgba(180,210,240,0.65) 0%, transparent 50%),
+      radial-gradient(circle 1.3px at 62% 72%, rgba(180,210,240,0.50) 0%, transparent 50%),
+      radial-gradient(circle 2.0px at 76% 58%, rgba(180,210,240,0.68) 0%, transparent 50%),
+      radial-gradient(circle 1.4px at 88% 80%, rgba(180,210,240,0.55) 0%, transparent 50%);
+    background-size: 100% 220px;
+    animation: snowFall1 9s linear infinite;
+  }
+
+  #weatherBg.snow .bg-layer-3 {
+    background-image:
+      radial-gradient(circle 1.5px at 5%  35%, rgba(180,210,240,0.55) 0%, transparent 50%),
+      radial-gradient(circle 1.2px at 18% 75%, rgba(180,210,240,0.50) 0%, transparent 50%),
+      radial-gradient(circle 2.0px at 35% 52%, rgba(180,210,240,0.65) 0%, transparent 50%),
+      radial-gradient(circle 1.0px at 52% 85%, rgba(180,210,240,0.40) 0%, transparent 50%),
+      radial-gradient(circle 1.8px at 70% 40%, rgba(180,210,240,0.62) 0%, transparent 50%),
+      radial-gradient(circle 1.3px at 85% 65%, rgba(180,210,240,0.50) 0%, transparent 50%),
+      radial-gradient(circle 1.6px at 96% 50%, rgba(180,210,240,0.55) 0%, transparent 50%);
+    background-size: 100% 160px;
+    animation: snowFall2 6s linear infinite;
+  }
+
+  #weatherBg.cloudy .bg-layer-2 {
+    background:
+      radial-gradient(ellipse 280px 90px at 15% 50%,  rgba(255,255,255,0.20) 0%, transparent 70%),
+      radial-gradient(ellipse 340px 100px at 48% 55%, rgba(255,255,255,0.15) 0%, transparent 70%),
+      radial-gradient(ellipse 240px 80px at 80% 45%,  rgba(255,255,255,0.18) 0%, transparent 70%);
+    width: 300%;
+    height: 180px;
+    top: 2%;
+    left: -100%;
+    animation: cloudDrift1 45s linear infinite;
+  }
+
+  #weatherBg.cloudy .bg-layer-3 {
+    background:
+      radial-gradient(ellipse 300px 85px at 25% 50%, rgba(255,255,255,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 220px 70px at 62% 55%, rgba(255,255,255,0.14) 0%, transparent 70%),
+      radial-gradient(ellipse 260px 80px at 90% 50%, rgba(255,255,255,0.12) 0%, transparent 70%);
+    width: 300%;
+    height: 140px;
+    top: 18%;
+    left: -100%;
+    animation: cloudDrift2 62s linear infinite;
+  }
+
+  #weatherBg.partly-cloudy .bg-layer-2 {
+    background:
+      radial-gradient(ellipse 220px 75px at 18% 50%,  rgba(255,255,255,0.22) 0%, transparent 70%),
+      radial-gradient(ellipse 300px 90px at 52% 55%,  rgba(255,255,255,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 180px 65px at 82% 45%,  rgba(255,255,255,0.20) 0%, transparent 70%);
+    width: 300%;
+    height: 160px;
+    top: 4%;
+    left: -100%;
+    animation: cloudDrift1 38s linear infinite;
+  }
+
+  #weatherBg.partly-cloudy .bg-layer-3 {
+    background:
+      radial-gradient(ellipse 260px 80px at 28% 50%, rgba(255,255,255,0.14) 0%, transparent 70%),
+      radial-gradient(ellipse 190px 65px at 68% 55%, rgba(255,255,255,0.16) 0%, transparent 70%);
+    width: 300%;
+    height: 130px;
+    top: 16%;
+    left: -100%;
+    animation: cloudDrift2 55s linear infinite;
+  }
+
+  #weatherBg.fog .bg-layer-2 {
+    background:
+      radial-gradient(ellipse 60% 18% at 30% 30%, rgba(200,210,220,0.25) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 14% at 70% 55%, rgba(200,210,220,0.20) 0%, transparent 70%),
+      radial-gradient(ellipse 55% 16% at 50% 75%, rgba(200,210,220,0.18) 0%, transparent 70%);
+    width: 200%;
+    height: 100%;
+    left: -50%;
+    animation: fogDrift 30s ease-in-out infinite alternate;
+  }
+
+  #weatherBg.sunny .bg-layer-2 {
+    background: conic-gradient(
+      from 0deg at 25% 6%,
+      transparent 0%, transparent 82%,
+      rgba(255,220,60,0.10) 84%, rgba(255,200,30,0.16) 86%,
+      rgba(255,220,60,0.10) 88%, transparent 91%,
+      transparent 94%, rgba(255,215,50,0.12) 96%,
+      rgba(255,200,30,0.14) 98%, transparent 100%
+    );
+    transform-origin: 25% 6%;
+    animation: sunRays 35s linear infinite;
+  }
+
+  #weatherBg.sunny .bg-layer-3 {
+    background: radial-gradient(ellipse 80% 30% at 25% 6%, rgba(255,240,120,0.12) 0%, transparent 60%);
+    animation: sunHaze 6s ease-in-out infinite alternate;
+  }
 }
+
+/* Manual dark-theme overrides for backgrounds */
+body.theme-dark #weatherBg.sunny {
+  background:
+    radial-gradient(ellipse 55% 45% at 20% 8%,  rgba(255,205,55,0.80) 0%, rgba(255,110,20,0.36) 32%, transparent 62%),
+    radial-gradient(ellipse 65% 55% at 78% 6%,  rgba(255,155,30,0.28) 0%, transparent 52%),
+    linear-gradient(168deg, #1c0e00 0%, #0f1624 52%, #000 100%);
+}
+
+body.theme-light #weatherBg.sunny {
+  background:
+    radial-gradient(ellipse 60% 50% at 25% 5%, rgba(255,225,80,0.75) 0%, rgba(255,165,30,0.35) 38%, transparent 65%),
+    linear-gradient(175deg, #4fa8e8 0%, #7cc8f5 35%, #b4dcf8 65%, #d2eefb 100%);
+}
+
+/* ─── Background animations ──────────────────────── */
 
 @keyframes sunPulse {
   from { filter: brightness(0.88) saturate(0.90); }
   to   { filter: brightness(1.10) saturate(1.12); }
 }
 
+@keyframes sunRays {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes sunHaze {
+  from { opacity: 0.6; transform: scale(1.0); }
+  to   { opacity: 1.0; transform: scale(1.12); }
+}
+
+@keyframes cloudDrift1 {
+  from { transform: translateX(0); }
+  to   { transform: translateX(33.33%); }
+}
+
+@keyframes cloudDrift2 {
+  from { transform: translateX(0); }
+  to   { transform: translateX(33.33%); }
+}
+
 @keyframes rainShift {
   from { filter: brightness(0.90) hue-rotate(0deg); }
   to   { filter: brightness(1.06) hue-rotate(10deg); }
+}
+
+@keyframes rainStreaks {
+  from { background-position: 0 0; }
+  to   { background-position: 35px 70px; }
+}
+
+@keyframes rainStreaks2 {
+  from { background-position: 0 0; }
+  to   { background-position: -25px 50px; }
+}
+
+@keyframes snowFall1 {
+  from { background-position: 0 -220px; }
+  to   { background-position: 12px 100vh; }
+}
+
+@keyframes snowFall2 {
+  from { background-position: 0 -160px; }
+  to   { background-position: -8px 100vh; }
 }
 
 @keyframes stormPulse {
@@ -184,6 +601,53 @@ body {
   90%           { filter: brightness(1.28); }
   92%           { filter: brightness(1.00); }
 }
+
+@keyframes lightningFlash {
+  0%, 88%, 91%, 94%, 100% { background: transparent; }
+  89%, 92%                { background: rgba(180,150,255,0.12); }
+}
+
+@keyframes fogDrift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(8%); }
+}
+
+@keyframes starTwinkle {
+  from { opacity: 0.5; }
+  to   { opacity: 1.0; }
+}
+
+@keyframes moonGlow {
+  from { opacity: 0.7; transform: scale(1.0); }
+  to   { opacity: 1.0; transform: scale(1.1); }
+}
+
+/* ─── Theme toggle button ────────────────────────── */
+
+.theme-toggle {
+  position: fixed;
+  top: 1.1rem;
+  right: 1.2rem;
+  z-index: 100;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.30);
+  padding: 0;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.theme-toggle:hover  { transform: scale(1.10); box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
+.theme-toggle:active { transform: scale(0.94); }
 
 /* ─── App Layout ─────────────────────────────────── */
 
@@ -242,6 +706,12 @@ body {
   }
 }
 
+/* ─── Hero: location + temp ──────────────────────── */
+
+.sidebar-hero {
+  margin-bottom: 0.9rem;
+}
+
 .sidebar-header {
   display: flex;
   align-items: flex-start;
@@ -285,7 +755,7 @@ h1 {
   display: flex;
   align-items: baseline;
   gap: 0.25rem;
-  margin: 0.5rem 0 1rem;
+  margin: 0.4rem 0 0.15rem;
 }
 
 .temp-big {
@@ -304,17 +774,24 @@ h1 {
   margin-top: 0.5rem;
 }
 
-/* ─── Location controls ──────────────────────────── */
+/* ─── Feels like ─────────────────────────────────── */
 
-.location-controls {
+.feels-like-row {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
 }
 
-.location-controls input {
-  flex: 1 1 auto;
-  min-width: 0;
+.feels-label {
+  font-size: 0.78rem;
+  color: var(--text2);
+}
+
+.feels-value {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
 }
 
 /* ─── Hours row ──────────────────────────────────── */
@@ -395,27 +872,26 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   line-height: 1.45;
 }
 
-/* ─── Stats grid ─────────────────────────────────── */
+/* ─── Stats grid (square cards) ──────────────────── */
 
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.55rem;
-}
-
-.stat-wind-card {
-  grid-column: 1 / -1;
+  margin-bottom: 0.55rem;
 }
 
 .stat-card {
-  padding: 0.7rem 0.85rem 0.65rem;
+  aspect-ratio: 1 / 1;
+  padding: 0.65rem 0.7rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  justify-content: space-between;
+  gap: 0.15rem;
 }
 
 .stat-label {
-  font-size: 0.73rem;
+  font-size: 0.68rem;
   font-weight: 500;
   color: var(--text2);
   letter-spacing: 0.01em;
@@ -423,14 +899,15 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 }
 
 .stat-value {
-  font-size: 1.05rem;
+  font-size: 1.0rem;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .stat-sub {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text2);
 }
 
@@ -439,15 +916,125 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 .stat-wind-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .wind-svg {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.4rem;
+  height: 1.4rem;
   color: var(--text);
   transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
   flex-shrink: 0;
+}
+
+/* ─── Moon phase ─────────────────────────────────── */
+
+.moon-section {
+  padding: 0.8rem 0.85rem;
+  margin-bottom: 0.55rem;
+}
+
+.moon-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+}
+
+.moon-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text2);
+}
+
+.moon-display {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+#moonCanvas {
+  border-radius: 50%;
+  flex-shrink: 0;
+  width: 56px !important;
+  max-height: unset;
+}
+
+.moon-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.moon-illumination {
+  font-size: 0.88rem;
+  color: var(--text2);
+}
+
+/* ─── Air quality ────────────────────────────────── */
+
+.aqi-section {
+  padding: 0.8rem 0.85rem;
+  margin-bottom: 0.55rem;
+}
+
+.aqi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+}
+
+.aqi-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.aqi-bar-wrap {
+  margin-bottom: 0.25rem;
+}
+
+.aqi-gradient-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    #4ade80 0%,
+    #a3e635 18%,
+    #facc15 36%,
+    #fb923c 54%,
+    #f87171 72%,
+    #c084fc 90%,
+    #7c3aed 100%
+  );
+  margin-bottom: 0.3rem;
+}
+
+.aqi-marker-line {
+  position: absolute;
+  top: -3px;
+  width: 3px;
+  height: 14px;
+  background: var(--text);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+  transition: left 0.6s ease;
+}
+
+.aqi-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.62rem;
+  color: var(--text3);
+}
+
+.aqi-desc {
+  font-size: 0.78rem;
+  color: var(--text2);
+  margin-top: 0.1rem;
 }
 
 /* ─── Charts main ────────────────────────────────── */
@@ -490,4 +1077,64 @@ h2 {
 canvas {
   width: 100% !important;
   max-height: clamp(160px, 22vh, 260px);
+}
+
+/* Moon canvas must not be stretched by the global canvas rule */
+#moonCanvas {
+  width: 56px !important;
+  height: 56px !important;
+  max-height: unset;
+}
+
+/* ─── Bottom search bar (fixed, centered) ────────── */
+
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 1rem 1rem;
+  /* Subtle fade from transparent to a dark base */
+  background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.35));
+  pointer-events: none;
+}
+
+/* Light theme bottom bar override */
+body.theme-light .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45)); }
+
+@media (prefers-color-scheme: light) {
+  .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45)); }
+}
+
+.location-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem 0.5rem 0.85rem;
+  pointer-events: all;
+  max-width: 440px;
+  width: 100%;
+}
+
+.search-icon {
+  font-size: 0.92rem;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.location-search-wrap input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0.2rem 0;
+  font-size: 0.92rem;
+}
+
+.location-search-wrap input:focus {
+  box-shadow: none;
+  border: none;
 }
