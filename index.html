@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wettervergleich – Ensemble-Vorhersage</title>
+    <title>Wettervorhersage</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -11,46 +11,104 @@
   </head>
   <body>
     <div id="weatherBg"></div>
-    <main class="container">
-      <h1>
-        Wettervorhersage
-        <span id="weatherIndicator" class="weather-indicator hidden">
-          <span id="weatherIcon"></span>
-          <span id="weatherLabel"></span>
-        </span>
-      </h1>
-      <p class="subtitle">
-        Lädt verfügbare Wetterquellen und zeigt die Verläufe von Temperatur,
-        Regenmenge und UV-Index je Quelle überlagert mit Legende.
-      </p>
 
-      <div class="controls">
-        <button id="loadBtn">Vorhersage laden</button>
-        <label>
-          Standort:
-          <input id="locationInput" type="search" placeholder="z. B. Berlin" value="Berlin" />
-        </label>
-        <label>
-          Stunden:
-          <input id="hoursInput" type="number" min="6" max="72" value="24" />
-        </label>
-      </div>
+    <div class="app-layout">
 
-      <p id="status" class="status">Bereit.</p>
+      <!-- ─── Sidebar ──────────────────────────────────────── -->
+      <aside class="sidebar glass">
 
-      <section class="chart-section">
-        <h2>Temperatur (°C)</h2>
-        <canvas id="tempChart"></canvas>
-      </section>
-      <section class="chart-section">
-        <h2>Regenmenge (mm/h)</h2>
-        <canvas id="rainChart"></canvas>
-      </section>
-      <section class="chart-section">
-        <h2>UV-Index</h2>
-        <canvas id="uvChart"></canvas>
-      </section>
-    </main>
+        <div class="sidebar-header">
+          <h1 id="locationName">Wettervorhersage</h1>
+          <div id="weatherIndicator" class="weather-badge hidden">
+            <span id="weatherIcon"></span>
+            <span id="weatherLabel"></span>
+          </div>
+        </div>
+
+        <div class="current-temp-row">
+          <span class="temp-big" id="currentTempBig">–</span>
+          <span class="temp-unit">°C</span>
+        </div>
+
+        <div class="location-controls">
+          <input id="locationInput" type="search" placeholder="Ort eingeben …" value="Berlin" autocomplete="off" />
+          <button id="loadBtn" title="Vorhersage laden">↺</button>
+        </div>
+
+        <div class="hours-row">
+          <span>Vorhersagedauer</span>
+          <div class="hours-input-wrap">
+            <input id="hoursInput" type="number" min="6" max="72" value="24" />
+            <span>h</span>
+          </div>
+        </div>
+
+        <p id="status" class="status">Bereit.</p>
+
+        <!-- ─── Wetter-Stats ──────────────────────────────── -->
+        <div class="stats-grid">
+
+          <div class="stat-card glass-inner stat-wind-card">
+            <span class="stat-label">Wind</span>
+            <div class="stat-wind-row">
+              <svg id="windArrow" class="wind-svg" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <!-- Arrow pointing up = FROM north; rotated by JS to match wind_direction -->
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <polyline points="5 11 12 4 19 11"/>
+              </svg>
+              <span class="stat-value" id="windSpeed">–</span>
+            </div>
+            <span class="stat-sub" id="windDirText">–</span>
+          </div>
+
+          <div class="stat-card glass-inner">
+            <span class="stat-label">Luftfeuchtigkeit</span>
+            <span class="stat-value" id="humidity">–</span>
+          </div>
+
+          <div class="stat-card glass-inner">
+            <span class="stat-label">Luftdruck</span>
+            <span class="stat-value" id="pressure">–</span>
+          </div>
+
+          <div class="stat-card glass-inner">
+            <span class="stat-label">Sonnenaufgang</span>
+            <span class="stat-value" id="sunrise">–</span>
+          </div>
+
+          <div class="stat-card glass-inner">
+            <span class="stat-label">Sonnenuntergang</span>
+            <span class="stat-value" id="sunset">–</span>
+          </div>
+
+          <div class="stat-card glass-inner">
+            <span class="stat-label">UV-Index</span>
+            <span class="stat-value" id="currentUV">–</span>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- ─── Charts ───────────────────────────────────────── -->
+      <main class="charts-main">
+        <section class="chart-section glass">
+          <h2>Temperatur (°C)</h2>
+          <canvas id="tempChart"></canvas>
+        </section>
+        <section class="chart-section glass">
+          <h2>Regenmenge (mm/h)</h2>
+          <canvas id="rainChart"></canvas>
+        </section>
+        <section class="chart-section glass">
+          <h2>UV-Index</h2>
+          <canvas id="uvChart"></canvas>
+        </section>
+      </main>
+
+    </div>
 
     <script type="module" src="app.js"></script>
   </body>
