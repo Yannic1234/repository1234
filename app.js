@@ -1095,7 +1095,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     if (maxPoints.length > 0) {
       markerDatasets.push({
         type: 'line',
-        label: 'Tagesmaximum',
+        label: 'Tageshöchsttemperatur',
         data: maxPoints,
         showLine: false,
         pointRadius: 5.5,
@@ -1112,7 +1112,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     if (minPoints.length > 0) {
       markerDatasets.push({
         type: 'line',
-        label: 'Tagestief',
+        label: 'Tagestiefsttemperatur',
         data: minPoints,
         showLine: false,
         pointRadius: 5.5,
@@ -1289,7 +1289,7 @@ async function loadAndRender() {
     // Update weather background and sidebar without blocking the main data load
     applyWeatherBackground(location);
 
-    setStatus(`Vorhersagedaten werden geladen … (${location.label})`);
+    setStatus(`Vorhersage wird geladen … (${location.label})`);
     const { available } = await loadAvailableSeries(hours, location);
 
     if (available.length === 0) {
