@@ -914,6 +914,12 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 const valueBadgePlugin = {
   id: 'valueBadge',
   afterDatasetsDraw(chart) {
+    const MIN_BADGE_WIDTH = 26;
+    const BADGE_HORIZONTAL_PADDING = 10;
+    const BADGE_HEIGHT = 16;
+    const BADGE_VERTICAL_OFFSET = 22;
+    const BADGE_BORDER_RADIUS = 5;
+    const BADGE_TEXT_VERTICAL_ADJUSTMENT = 0.4;
     const { ctx } = chart;
     if (!ctx) return;
     ctx.save();
@@ -937,17 +943,17 @@ const valueBadgePlugin = {
         const text = formatter(rawValue);
         if (!text) return;
         const metrics = ctx.measureText(text);
-        const width = Math.max(26, metrics.width + 10);
-        const height = 16;
+        const width = Math.max(MIN_BADGE_WIDTH, metrics.width + BADGE_HORIZONTAL_PADDING);
+        const height = BADGE_HEIGHT;
         const x = element.x - width / 2;
-        const y = element.y - 22;
+        const y = element.y - BADGE_VERTICAL_OFFSET;
 
         ctx.fillStyle = dataset.valueBadgeBackgroundColor ?? 'rgba(255,255,255,0.86)';
-        drawRoundedRect(ctx, x, y, width, height, 5);
+        drawRoundedRect(ctx, x, y, width, height, BADGE_BORDER_RADIUS);
         ctx.fill();
 
         ctx.fillStyle = dataset.valueBadgeTextColor ?? '#0f172a';
-        ctx.fillText(text, element.x, y + height / 2 + 0.4);
+        ctx.fillText(text, element.x, y + height / 2 + BADGE_TEXT_VERTICAL_ADJUSTMENT);
       });
     });
 
