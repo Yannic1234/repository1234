@@ -908,8 +908,8 @@ const dayNightPlugin = {
       }
     }
 
-    // Draw moon symbols in the centre of each night band
-    const midY = (top + bottom) / 2;
+    // Draw moon symbols in the upper area of each night band
+    const midY = top + 14;
     const minBandWidth = 28;
     ctx.font = '12px serif';
     ctx.textAlign = 'center';
@@ -1009,6 +1009,31 @@ const valueBadgePlugin = {
 function getWeatherAccentColor() {
   const cssColor = getComputedStyle(document.body).getPropertyValue('--weather-accent').trim();
   return cssColor || 'rgba(255, 205, 92, 0.98)';
+}
+
+function buildTemperatureColorPalette() {
+  const accent = getWeatherAccentColor();
+  let r = 255, g = 205, b = 92;
+  // Support both 6-digit (#rrggbb) and 3-digit (#rgb) shorthand hex formats
+  const hex6 = accent.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  const hex3 = accent.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i);
+  if (hex6) {
+    r = parseInt(hex6[1], 16);
+    g = parseInt(hex6[2], 16);
+    b = parseInt(hex6[3], 16);
+  } else if (hex3) {
+    r = parseInt(hex3[1] + hex3[1], 16);
+    g = parseInt(hex3[2] + hex3[2], 16);
+    b = parseInt(hex3[3] + hex3[3], 16);
+  } else {
+    const rgbMatch = accent.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/);
+    if (rgbMatch) { r = +rgbMatch[1]; g = +rgbMatch[2]; b = +rgbMatch[3]; }
+  }
+  return {
+    mean: accent,
+    band: `rgba(${r}, ${g}, ${b}, 0.18)`,
+    providers: [0.72, 0.54, 0.48, 0.40, 0.34, 0.30].map(a => `rgba(${r}, ${g}, ${b}, ${a})`)
+  };
 }
 
 // ─── Chart rendering ──────────────────────────────────────────────────────────
@@ -1113,7 +1138,12 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   const theme = getChartTheme();
   const basePalette = METRIC_PALETTES[metricKey] ?? METRIC_PALETTES.temperature_2m;
   const palette = { ...basePalette };
-  if (metricKey === 'temperature_2m') palette.mean = getWeatherAccentColor();
+  if (metricKey === 'temperature_2m') {
+    const tp = buildTemperatureColorPalette();
+    palette.mean = tp.mean;
+    palette.band = tp.band;
+    palette.providers = [...tp.providers];
+  }
   if (metricKey === 'uv_index') palette.mean = 'rgba(255, 255, 255, 0.98)';
   const aggregateSeries = computeAggregateSeries(seriesByProvider, metricKey);
 
@@ -1325,11 +1355,44 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         color: theme.tickColor,
         font: { size: 11 },
         padding: 8,
-        ...(metricKey === 'temperature_2m' ? { count: 8 } : {})
+        ...(metricKey === 'temperature_2m' ? { precision: 0 } : {}),
+        ...(metricKey === 'precipitation' ? { stepSize: 0.1 } : {})
       },
       border: { dash: [4, 4] },
       ...(metricKey === 'temperature_2m'
-        ? { afterDataLimits: (scale) => { scale.min = Math.min(scale.min, 0); } }
+        ? {
+            afterDataLimits: (scale) => {
+              scale.min = Math.min(scale.min, 0);
+              const rawMin = Math.floor(scale.min);
+              const rawMax = Math.ceil(scale.max);
+              let step = 4;
+              for (const s of [1, 2, 3, 4]) {
+                const sMin = Math.floor(rawMin / s) * s;
+                const sMax = Math.ceil(rawMax / s) * s;
+                const count = Math.round((sMax - sMin) / s);
+                if (count >= 6 && count <= 8) { step = s; break; }
+              }
+              scale.min = Math.floor(rawMin / step) * step;
+              scale.max = Math.ceil(rawMax / step) * step;
+              while (Math.round((scale.max - scale.min) / step) < 6) scale.max += step;
+            },
+            afterBuildTicks: (scale) => {
+              const range = Math.round(scale.max - scale.min);
+              if (range <= 0) return;
+              let step = 4;
+              for (const s of [1, 2, 3, 4]) {
+                const count = Math.round(range / s);
+                if (count >= 6 && count <= 8) { step = s; break; }
+              }
+              const ticks = [];
+              const minV = Math.round(scale.min);
+              const maxV = Math.round(scale.max);
+              for (let v = minV; v <= maxV + 0.001 /* float-drift guard */; v += step) {
+                ticks.push({ value: v });
+              }
+              scale.ticks = ticks;
+            }
+          }
         : metricKey === 'precipitation'
           ? { min: 0, max: PRECIPITATION_AXIS_MAX_MM_PER_HOUR }
           : metricKey === 'uv_index'
@@ -1349,6 +1412,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       plugins: [
         dayNightPlugin,
+        nowLinePlugin,
         valueBadgePlugin,
         {
           id: 'noDataLabel',
@@ -1414,83 +1478,9 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       scales: sharedScales
     },
-    plugins: [dayNightPlugin, valueBadgePlugin]
+    plugins: [dayNightPlugin, nowLinePlugin, valueBadgePlugin]
   });
 }
-
-// ─── Global "Jetzt" bar spanning all charts ───────────────────────────────────
-
-function updateGlobalNowBar() {
-  const bar = document.getElementById('globalNowBar');
-  if (!bar) return;
-
-  const chart = charts['tempChart'] || charts['rainChart'] || charts['uvChart'];
-  if (!chart) { bar.style.display = 'none'; return; }
-
-  const xScale = chart.scales?.x;
-  const chartArea = chart.chartArea;
-  if (!xScale || !chartArea) { bar.style.display = 'none'; return; }
-
-  // Use the location's timezone to compute "now" correctly.
-  // Open-Meteo returns timestamps without timezone suffix (local time), which the
-  // browser parses as browser-local time. To align "now" with those timestamps we
-  // express the current moment as a naïve local-time string in the *location's*
-  // timezone and re-parse it as browser-local time.
-  let now;
-  const tz = cachedLocation?.timezone;
-  if (tz) {
-    try {
-      const localStr = new Date().toLocaleString('sv-SE', { timeZone: tz });
-      now = new Date(localStr.replace(' ', 'T')).getTime();
-    } catch {
-      now = Date.now();
-    }
-  } else {
-    now = Date.now();
-  }
-
-  if (now < xScale.min || now > xScale.max) { bar.style.display = 'none'; return; }
-
-  const canvas = chart.canvas;
-  const wrapperEl = document.getElementById('chartsWrapper');
-  if (!wrapperEl) { bar.style.display = 'none'; return; }
-
-  // xScale.getPixelForValue returns coordinates in Chart.js's drawing space,
-  // which equals CSS pixels (Chart.js scales canvas.width by devicePixelRatio
-  // and applies the same scaling to the 2D context transform).
-  const nowPxInCanvas = xScale.getPixelForValue(now);
-  const canvasRect  = canvas.getBoundingClientRect();
-  const wrapperRect = wrapperEl.getBoundingClientRect();
-
-  const nowXInWrapper = (canvasRect.left - wrapperRect.left) + nowPxInCanvas;
-
-  // Vertical extent: from the top of the tempChart plot area to the bottom of the
-  // uvChart plot area, both converted to chartsWrapper-relative coordinates.
-  const tempChart = charts['tempChart'];
-  const uvChart   = charts['uvChart'];
-  let barTop    = 0;
-  let barBottom = wrapperRect.height;
-
-  if (tempChart?.chartArea) {
-    const r = tempChart.canvas.getBoundingClientRect();
-    barTop = (r.top - wrapperRect.top) + tempChart.chartArea.top;
-  }
-  if (uvChart?.chartArea) {
-    const r = uvChart.canvas.getBoundingClientRect();
-    barBottom = (r.top - wrapperRect.top) + uvChart.chartArea.bottom;
-  }
-
-  bar.style.left    = `${nowXInWrapper}px`;
-  bar.style.top     = `${barTop}px`;
-  bar.style.height  = `${Math.max(0, barBottom - barTop)}px`;
-  bar.style.bottom  = 'auto';
-  bar.style.display = 'block';
-}
-
-// Refresh the bar every 30 s so it stays accurate as time passes
-setInterval(updateGlobalNowBar, 30_000);
-// Also refresh on resize
-window.addEventListener('resize', updateGlobalNowBar, { passive: true });
 
 async function loadAndRender() {
   try {
@@ -1525,9 +1515,6 @@ async function loadAndRender() {
     renderOverlayChart('tempChart', 'Temperatur', available, 'temperature_2m');
     renderOverlayChart('rainChart', 'Regen',      available, 'precipitation');
     renderOverlayChart('uvChart',   'UV-Index',   available, 'uv_index');
-
-    // Small delay so Chart.js finishes layout before we read chartArea
-    requestAnimationFrame(updateGlobalNowBar);
 
     setStatus(`Fertig: Vorhersage aktualisiert für ${location.label}.`);
   } catch (error) {
