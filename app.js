@@ -58,6 +58,7 @@ const WEATHER_ACCENTS = {
 };
 
 const PRECIPITATION_VALUE_COLOR = 'rgba(125, 198, 255, 0.96)';
+const PRECIPITATION_AXIS_MAX_MM_PER_HOUR = 0.2;
 const UV_INDEX_COLORS = [
   { min: 8, color: '#ff6b57' },
   { min: 6, color: '#ff9f43' },
@@ -605,8 +606,10 @@ function updateSidebarStats(data, locationLabel) {
 
   // Wind – arrow rotated to show direction wind is blowing TOWARD (+180° from source)
   const spd = cur.wind_speed_10m;
+  const gust = cur.wind_gusts_10m;
   const dir = cur.wind_direction_10m;
   setSidebarValue('windSpeed',  Number.isFinite(spd) ? `${Math.round(spd)} km/h` : '–');
+  setSidebarValue('windGust', Number.isFinite(gust) ? `Böen ${Math.round(gust)} km/h` : 'Böen –');
   setSidebarValue('windDirText', Number.isFinite(dir) ? `aus ${degToCompass(dir)}` : '–');
 
   const arrowEl = document.getElementById('windArrow');
@@ -707,7 +710,7 @@ async function applyWeatherBackground(coords) {
     const params = new URLSearchParams({
       latitude:  String(coords.latitude),
       longitude: String(coords.longitude),
-      current:   'weather_code,is_day,temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure,uv_index,visibility,precipitation',
+      current:   'weather_code,is_day,temperature_2m,apparent_temperature,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,surface_pressure,uv_index,visibility,precipitation',
       daily:     'sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code',
       forecast_days: '2',
       timezone:  'auto'
@@ -832,23 +835,30 @@ function setWeatherUI(cls) {
 
 const nowLinePlugin = {
   id: 'nowLine',
-  beforeDatasetsDraw(chart) {
+  afterDatasetsDraw(chart) {
+    // Draw after datasets so the "Jetzt"-indicator stays visible across all charts.
+    const JETZT_BAR_HALF_WIDTH = 3;
+    const JETZT_LABEL_OFFSET = 9;
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea) return;
     const now = Date.now();
     if (now < xScale.min || now > xScale.max) return;
     const px = xScale.getPixelForValue(now);
-    const { top, bottom } = chartArea;
+    const { top, bottom, left, right } = chartArea;
+    const barStart = Math.max(left, px - JETZT_BAR_HALF_WIDTH);
+    const barEnd = Math.min(right, px + JETZT_BAR_HALF_WIDTH);
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 1.5;
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillRect(barStart, top, Math.max(1, barEnd - barStart), bottom - top);
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    ctx.lineWidth = 1.2;
     ctx.setLineDash([]);
     ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.90)';
     ctx.font = `bold 10px ${Chart.defaults.font.family}`;
     ctx.textAlign = 'center';
-    ctx.fillText('Jetzt', px, top - 2);
+    ctx.fillText('Jetzt', px, top + JETZT_LABEL_OFFSET);
     ctx.restore();
   }
 };
@@ -917,6 +927,7 @@ function formatCompactOneDecimal(value) {
 
 const formatTemperatureBadge = (value) => `${Math.round(value)}°C`;
 const formatUvBadge = (value) => formatCompactOneDecimal(value);
+const formatPrecipBadge = (value) => `${formatCompactOneDecimal(value)} mm/h`;
 const formatDefaultBadge = (value) => Number.isFinite(value)
   ? formatCompactOneDecimal(value)
   : String(value);
@@ -960,9 +971,11 @@ const valueBadgePlugin = {
         const x = element.x - width / 2;
         const y = element.y - BADGE_CONFIG.verticalOffset;
 
-        ctx.fillStyle = dataset.valueBadgeBackgroundColor ?? 'rgba(255,255,255,0.86)';
-        drawRoundedRect(ctx, x, y, width, height, BADGE_CONFIG.borderRadius);
-        ctx.fill();
+        if (!dataset.valueBadgeNoBackground) {
+          ctx.fillStyle = dataset.valueBadgeBackgroundColor ?? 'rgba(255,255,255,0.86)';
+          drawRoundedRect(ctx, x, y, width, height, BADGE_CONFIG.borderRadius);
+          ctx.fill();
+        }
 
         ctx.fillStyle = dataset.valueBadgeTextColor ?? '#0f172a';
         ctx.fillText(text, element.x, y + height / 2 + BADGE_CONFIG.textBaselineAdjustment);
@@ -1056,7 +1069,7 @@ function getDailyTemperatureMarkers(aggregateSeries) {
   };
 }
 
-function getDailyUvMaxMarkers(aggregateSeries) {
+function getDailyMaxMarkers(aggregateSeries) {
   const perDay = new Map();
   for (const point of aggregateSeries) {
     if (!Number.isFinite(point.mean) || point.mean <= 0) continue;
@@ -1193,8 +1206,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         fill: false,
         valueBadge: true,
         valueBadgeFormatter: formatTemperatureBadge,
-        valueBadgeBackgroundColor: 'rgba(255, 215, 120, 0.96)',
-        valueBadgeTextColor: '#3b2500'
+        valueBadgeNoBackground: true,
+        valueBadgeTextColor: '#ffffff'
       });
     }
     if (minPoints.length > 0) {
@@ -1211,14 +1224,37 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         fill: false,
         valueBadge: true,
         valueBadgeFormatter: formatTemperatureBadge,
-        valueBadgeBackgroundColor: 'rgba(149, 198, 255, 0.96)',
-        valueBadgeTextColor: '#082a4a'
+        valueBadgeNoBackground: true,
+        valueBadgeTextColor: '#ffffff'
+      });
+    }
+  }
+
+  if (metricKey === 'precipitation' && aggregateSeries.length > 0) {
+    const precipMaxPoints = getDailyMaxMarkers(aggregateSeries);
+    if (precipMaxPoints.length > 0) {
+      markerDatasets.push({
+        type: 'line',
+        label: 'Tagesniederschlagsmaximum',
+        legendHidden: true,
+        data: precipMaxPoints,
+        order: 100,
+        clip: false,
+        showLine: false,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        borderColor: 'transparent',
+        fill: false,
+        valueBadge: true,
+        valueBadgeFormatter: formatPrecipBadge,
+        valueBadgeNoBackground: true,
+        valueBadgeTextColor: '#ffffff'
       });
     }
   }
 
   if (metricKey === 'uv_index' && aggregateSeries.length > 0) {
-    const uvMaxPoints = getDailyUvMaxMarkers(aggregateSeries);
+    const uvMaxPoints = getDailyMaxMarkers(aggregateSeries);
     if (uvMaxPoints.length > 0) {
       markerDatasets.push({
         type: 'line',
@@ -1274,7 +1310,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       ...(metricKey === 'temperature_2m'
         ? { afterDataLimits: (scale) => { scale.min = Math.min(scale.min, 0); } }
         : metricKey === 'precipitation'
-          ? { min: 0, suggestedMax: yUpperBound }
+          ? { min: 0, max: PRECIPITATION_AXIS_MAX_MM_PER_HOUR }
           : metricKey === 'uv_index'
             ? { min: 0, suggestedMax: yUpperBound }
             : {})

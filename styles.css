@@ -1084,7 +1084,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   display: block;
   font-size: 0.78rem;
   color: var(--text3);
-  margin: 0 0 1rem;
+  margin: 0.55rem 0 0;
   padding: 0.4rem 0.75rem;
   background: var(--status-bg);
   border-radius: var(--radius-sm);
@@ -1157,6 +1157,11 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   display: flex;
   align-items: center;
   gap: 0.3rem;
+}
+
+.stat-gust {
+  color: var(--text3);
+  min-width: 5.8rem;
 }
 
 .stat-card-right {

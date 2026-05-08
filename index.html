@@ -61,14 +61,13 @@
           <p class="weather-narrative" id="weatherNarrative"></p>
         </div>
 
-        <p id="status" class="status">Bereit.</p>
-
         <!-- ─── Stats grid (compact rows) ───────────────────── -->
         <div class="stats-grid">
 
           <div class="stat-card">
             <span class="stat-label">Wind</span>
             <div class="stat-wind-row">
+              <span class="stat-sub stat-gust" id="windGust">Böen –</span>
               <svg id="windArrow" class="wind-svg" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2.2"
                    stroke-linecap="round" stroke-linejoin="round"
@@ -150,6 +149,7 @@
           </div>
           <span class="aqi-desc" id="aqiDesc">–</span>
         </div>
+        <p id="status" class="status">Bereit.</p>
 
       </aside>
 
