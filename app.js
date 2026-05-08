@@ -584,17 +584,15 @@ function updateSidebarStats(data, locationLabel) {
   const cur   = data?.current ?? {};
   const daily = data?.daily   ?? {};
 
-  if (locationLabel) {
-    if (locationLabel && typeof locationLabel === 'object' && !Array.isArray(locationLabel)) {
-      const city = locationLabel.city ?? locationLabel.label ?? '';
-      const metaParts = [locationLabel.region, locationLabel.country].filter(Boolean);
-      setSidebarValue('locationName', city || '–');
-      setSidebarValue('locationMeta', metaParts.join(', ') || '–');
-    } else {
-      const parts = String(locationLabel).split(',').map((part) => part.trim()).filter(Boolean);
-      setSidebarValue('locationName', parts[0] ?? String(locationLabel));
-      setSidebarValue('locationMeta', parts.slice(1).join(', ') || '–');
-    }
+  if (locationLabel && typeof locationLabel === 'object' && !Array.isArray(locationLabel)) {
+    const city = locationLabel.city ?? locationLabel.label ?? '';
+    const metaParts = [locationLabel.region, locationLabel.country].filter(Boolean);
+    setSidebarValue('locationName', city || '–');
+    setSidebarValue('locationMeta', metaParts.join(', ') || '–');
+  } else if (locationLabel) {
+    const parts = String(locationLabel).split(',').map((part) => part.trim()).filter(Boolean);
+    setSidebarValue('locationName', parts[0] ?? String(locationLabel));
+    setSidebarValue('locationMeta', parts.slice(1).join(', ') || '–');
   }
 
   // Temperature
@@ -1473,6 +1471,12 @@ async function fetchAndDisplayAQI(coords) {
     return els;
   }
 
+  // Lerp convergence threshold in pixels: below this the animation is stopped
+  const REFLEX_THRESHOLD = 0.4;
+  // Horizontal input influences reflection angle slightly stronger than vertical.
+  const REFLEX_ANGLE_X_FACTOR = 12;
+  const REFLEX_ANGLE_Y_FACTOR = 8;
+
   // Write per-element CSS vars: position of the light source relative to each card
   function applyReflex(vx, vy) {
     for (const el of getEls()) {
@@ -1493,12 +1497,6 @@ async function fetchAndDisplayAQI(coords) {
   }
 
   function lerp(a, b, t) { return a + (b - a) * t; }
-
-  // Lerp convergence threshold in pixels: below this the animation is stopped
-  const REFLEX_THRESHOLD = 0.4;
-  // Horizontal input influences reflection angle slightly stronger than vertical.
-  const REFLEX_ANGLE_X_FACTOR = 12;
-  const REFLEX_ANGLE_Y_FACTOR = 8;
 
   function tick() {
     currentX = lerp(currentX, targetX, 0.10);
