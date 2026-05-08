@@ -757,7 +757,7 @@ body.theme-light #weatherBg.sunny {
   inset: auto -10% -55% auto;
   width: 180px;
   height: 180px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--weather-accent) 48%, transparent) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--weather-accent-soft) 0%, transparent 70%);
   opacity: 0.6;
   pointer-events: none;
 }
@@ -781,7 +781,7 @@ body.theme-light #weatherBg.sunny {
   height: 0.45rem;
   border-radius: 50%;
   background: var(--weather-accent);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--weather-accent) 65%, transparent);
+  box-shadow: 0 0 18px var(--weather-accent-soft);
 }
 
 .sidebar-header {
@@ -808,8 +808,8 @@ h1 {
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--weather-accent);
-  background: color-mix(in srgb, var(--weather-accent-soft) 78%, rgba(255,255,255,0.06));
-  border: 1px solid color-mix(in srgb, var(--weather-accent) 42%, rgba(255,255,255,0.08));
+  background: var(--weather-accent-soft);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 20px;
   padding: 0.20rem 0.65rem;
   backdrop-filter: blur(14px);
@@ -835,10 +835,10 @@ h1 {
   font-weight: 760;
   letter-spacing: -0.06em;
   line-height: 1;
-  color: color-mix(in srgb, var(--text) 74%, var(--weather-accent) 26%);
+  color: var(--text);
   text-shadow:
     0 10px 28px rgba(0, 0, 0, 0.34),
-    0 0 24px color-mix(in srgb, var(--weather-accent) 28%, transparent);
+    0 0 24px var(--weather-accent-soft);
 }
 
 .temp-unit {

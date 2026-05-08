@@ -57,6 +57,14 @@ const WEATHER_ACCENTS = {
   night:           { accent: '#a9c7ff', strong: '#3659d9', soft: 'rgba(63, 99, 220, 0.22)' }
 };
 
+const PRECIPITATION_VALUE_COLOR = 'rgba(125, 198, 255, 0.96)';
+const UV_INDEX_COLORS = [
+  { min: 8, color: '#ff6b57' },
+  { min: 6, color: '#ff9f43' },
+  { min: 3, color: '#ffd166' }
+];
+const MIN_MOON_TERMINATOR_WIDTH = 0.8;
+
 // Dash patterns for distinguishing overlapping series
 const DASH_PATTERNS = [
   [],              // solid
@@ -607,7 +615,7 @@ function updateSidebarStats(data, locationLabel) {
   // Precipitation
   const precip = cur.precipitation;
   setSidebarValue('currentPrecip', Number.isFinite(precip) ? `${precip.toFixed(1)} mm/h` : '–');
-  setInlineColor('currentPrecip', Number.isFinite(precip) && precip > 0 ? 'rgba(125, 198, 255, 0.96)' : 'var(--text)');
+  setInlineColor('currentPrecip', Number.isFinite(precip) && precip > 0 ? PRECIPITATION_VALUE_COLOR : 'var(--text)');
 
   // Sunrise / sunset
   setSidebarValue('sunrise', formatLocalTime(daily.sunrise?.[0]));
@@ -616,11 +624,14 @@ function updateSidebarStats(data, locationLabel) {
   // UV index
   const uv = cur.uv_index;
   setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
+  let uvColor = 'var(--text)';
+  if (Number.isFinite(uv)) {
+    const matchedUvColor = UV_INDEX_COLORS.find((entry) => uv >= entry.min);
+    uvColor = matchedUvColor ? matchedUvColor.color : 'var(--text)';
+  }
   setInlineColor(
     'currentUV',
-    Number.isFinite(uv)
-      ? (uv >= 8 ? '#ff6b57' : uv >= 6 ? '#ff9f43' : uv >= 3 ? '#ffd166' : 'var(--text)')
-      : 'var(--text)'
+    uvColor
   );
 }
 
@@ -1117,9 +1128,10 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
           padding: 10,
           callbacks: {
             label(item) {
+              const rawValue = item.raw?.y;
               const val = item.parsed.y;
               if (val == null) return null;
-              if (Array.isArray(val)) return ` ${item.dataset.label}: ${val[0].toFixed(1)}–${val[1].toFixed(1)}${suffix}`;
+              if (Array.isArray(rawValue)) return ` ${item.dataset.label}: ${rawValue[0].toFixed(1)}–${rawValue[1].toFixed(1)}${suffix}`;
               return ` ${item.dataset.label}: ${val.toFixed(1)}${suffix}`;
             }
           }
@@ -1229,7 +1241,7 @@ function drawMoonCanvas(phase) {
   ctx.ellipse(
     cx + phaseOffset,
     cy,
-    Math.max(0.8, Math.abs(phaseOffset)),
+    Math.max(MIN_MOON_TERMINATOR_WIDTH, Math.abs(phaseOffset)),
     r,
     0,
     waxing ? -Math.PI / 2 : Math.PI / 2,
@@ -1242,7 +1254,7 @@ function drawMoonCanvas(phase) {
   ctx.strokeStyle = 'rgba(255, 247, 207, 0.18)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(cx + phaseOffset, cy, Math.max(0.8, Math.abs(phaseOffset)), r, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx + phaseOffset, cy, Math.max(MIN_MOON_TERMINATOR_WIDTH, Math.abs(phaseOffset)), r, 0, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.restore();
