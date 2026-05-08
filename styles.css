@@ -1235,7 +1235,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 .global-now-bar {
   position: absolute;
   top: 0;
-  bottom: 0;
+  height: 0;
   width: 2px;
   background: linear-gradient(to bottom, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.35) 100%);
   pointer-events: none;
