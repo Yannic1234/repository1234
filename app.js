@@ -837,6 +837,8 @@ const nowLinePlugin = {
   id: 'nowLine',
   afterDatasetsDraw(chart) {
     // Draw after datasets so the "Jetzt"-indicator stays visible across all charts.
+    const JETZT_BAR_HALF_WIDTH = 3;
+    const JETZT_LABEL_OFFSET = 9;
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea) return;
@@ -844,9 +846,8 @@ const nowLinePlugin = {
     if (now < xScale.min || now > xScale.max) return;
     const px = xScale.getPixelForValue(now);
     const { top, bottom, left, right } = chartArea;
-    const barHalfWidth = 3;
-    const barStart = Math.max(left, px - barHalfWidth);
-    const barEnd = Math.min(right, px + barHalfWidth);
+    const barStart = Math.max(left, px - JETZT_BAR_HALF_WIDTH);
+    const barEnd = Math.min(right, px + JETZT_BAR_HALF_WIDTH);
     ctx.save();
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.fillRect(barStart, top, Math.max(1, barEnd - barStart), bottom - top);
@@ -857,7 +858,7 @@ const nowLinePlugin = {
     ctx.fillStyle = 'rgba(255,255,255,0.90)';
     ctx.font = `bold 10px ${Chart.defaults.font.family}`;
     ctx.textAlign = 'center';
-    ctx.fillText('Jetzt', px, top + 9);
+    ctx.fillText('Jetzt', px, top + JETZT_LABEL_OFFSET);
     ctx.restore();
   }
 };
