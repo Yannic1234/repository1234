@@ -28,6 +28,7 @@
 
         <!-- Hero: location name + temperature (shown immediately, top-left) -->
         <div class="sidebar-hero">
+          <span class="hero-kicker">Live-Wetter · 48h-Modellvergleich</span>
           <div class="sidebar-header">
             <h1 id="locationName">Dresden</h1>
             <div id="weatherIndicator" class="weather-badge hidden">
@@ -185,14 +186,19 @@
     </div>
 
     <!-- ─── Page-level attribution ──────────────────────── -->
-    <div class="page-attribution">
-      <span>Daten:</span>
-      <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
-      <a href="https://www.dwd.de/" target="_blank" rel="noopener">DWD</a> ·
-      <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky</a> ·
-      <a href="https://api.met.no/" target="_blank" rel="noopener">MET Norway</a> ·
-      <a href="https://www.7timer.info/" target="_blank" rel="noopener">7Timer!</a>
-    </div>
+    <footer class="site-footer">
+      <details class="sources-panel glass">
+        <summary>Quellen & Modelle</summary>
+        <div class="page-attribution">
+          <span>Daten:</span>
+          <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+          <a href="https://www.dwd.de/" target="_blank" rel="noopener">DWD</a> ·
+          <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky</a> ·
+          <a href="https://api.met.no/" target="_blank" rel="noopener">MET Norway</a> ·
+          <a href="https://www.7timer.info/" target="_blank" rel="noopener">7Timer!</a>
+        </div>
+      </details>
+    </footer>
 
     <script type="module" src="app.js"></script>
   </body>

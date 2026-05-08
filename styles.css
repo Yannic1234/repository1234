@@ -13,15 +13,18 @@
   --radius:    18px;
   --radius-sm: 10px;
 
-  /* Text is ALWAYS white regardless of mode */
-  --text:         rgba(255, 255, 255, 0.95);
-  --text2:        rgba(255, 255, 255, 0.65);
-  --text3:        rgba(255, 255, 255, 0.38);
+  --text:         #f5f7fa;
+  --text2:        rgba(245, 247, 250, 0.78);
+  --text3:        rgba(245, 247, 250, 0.46);
+  --weather-accent: #ffd166;
+  --weather-accent-strong: #ffb703;
+  --weather-accent-soft: rgba(255, 209, 102, 0.22);
+  --aqi-accent: #4ade80;
 
   /* Dark mode glass defaults */
   --glass-bg:     rgba(255, 255, 255, 0.10);
   --glass-inner:  rgba(255, 255, 255, 0.07);
-  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.12);
   --glass-shadow: 0 4px 18px rgba(0, 0, 0, 0.22),
                   inset 0 1px 0 rgba(255, 255, 255, 0.10);
   --input-bg:     rgba(255, 255, 255, 0.10);
@@ -35,7 +38,7 @@
     /* Text stays white – only glass brightness changes */
     --glass-bg:     rgba(255, 255, 255, 0.20);
     --glass-inner:  rgba(255, 255, 255, 0.15);
-    --glass-border: rgba(255, 255, 255, 0.35);
+    --glass-border: rgba(255, 255, 255, 0.18);
     --glass-shadow: 0 4px 18px rgba(0, 0, 0, 0.14),
                     inset 0 1px 0 rgba(255, 255, 255, 0.45);
     --input-bg:     rgba(255, 255, 255, 0.20);
@@ -51,7 +54,7 @@ body.theme-dark {
   /* Text stays white */
   --glass-bg:     rgba(255, 255, 255, 0.10);
   --glass-inner:  rgba(255, 255, 255, 0.07);
-  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.12);
   --glass-shadow: 0 4px 18px rgba(0, 0, 0, 0.22),
                   inset 0 1px 0 rgba(255, 255, 255, 0.10);
   --input-bg:     rgba(255, 255, 255, 0.10);
@@ -64,7 +67,7 @@ body.theme-light {
   /* Text stays white – only glass brightness changes */
   --glass-bg:     rgba(255, 255, 255, 0.20);
   --glass-inner:  rgba(255, 255, 255, 0.15);
-  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-border: rgba(255, 255, 255, 0.18);
   --glass-shadow: 0 4px 18px rgba(0, 0, 0, 0.14),
                   inset 0 1px 0 rgba(255, 255, 255, 0.45);
   --input-bg:     rgba(255, 255, 255, 0.20);
@@ -733,7 +736,52 @@ body.theme-light #weatherBg.sunny {
 /* ─── Hero: location + temp ──────────────────────── */
 
 .sidebar-hero {
-  margin-bottom: 0.9rem;
+  position: relative;
+  margin-bottom: 1rem;
+  padding: 1rem 1rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: calc(var(--radius) - 2px);
+  background:
+    radial-gradient(circle at top right, var(--weather-accent-soft) 0%, transparent 44%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 40px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.sidebar-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -55% auto;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--weather-accent) 48%, transparent) 0%, transparent 70%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.hero-kicker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--weather-accent);
+}
+
+.hero-kicker::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--weather-accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--weather-accent) 65%, transparent);
 }
 
 .sidebar-header {
@@ -745,8 +793,8 @@ body.theme-light #weatherBg.sunny {
 }
 
 h1 {
-  font-size: clamp(1.2rem, 2.6vw, 1.7rem);
-  font-weight: 700;
+  font-size: clamp(1.45rem, 2.8vw, 2.05rem);
+  font-weight: 760;
   letter-spacing: -0.035em;
   line-height: 1.15;
   color: var(--text);
@@ -759,9 +807,9 @@ h1 {
   gap: 0.3rem;
   font-size: 0.78rem;
   font-weight: 500;
-  color: var(--text2);
-  background: var(--glass-inner);
-  border: 1px solid var(--glass-border);
+  color: var(--weather-accent);
+  background: color-mix(in srgb, var(--weather-accent-soft) 78%, rgba(255,255,255,0.06));
+  border: 1px solid color-mix(in srgb, var(--weather-accent) 42%, rgba(255,255,255,0.08));
   border-radius: 20px;
   padding: 0.20rem 0.65rem;
   backdrop-filter: blur(14px);
@@ -778,30 +826,33 @@ h1 {
 .current-temp-row {
   display: flex;
   align-items: baseline;
-  gap: 0.25rem;
-  margin: 0.4rem 0 0.15rem;
+  gap: 0.32rem;
+  margin: 0.48rem 0 0.2rem;
 }
 
 .temp-big {
-  font-size: clamp(2.8rem, 6vw, 4rem);
-  font-weight: 200;
-  letter-spacing: -0.04em;
+  font-size: clamp(3.5rem, 7vw, 5.35rem);
+  font-weight: 760;
+  letter-spacing: -0.06em;
   line-height: 1;
-  color: var(--text);
+  color: color-mix(in srgb, var(--text) 74%, var(--weather-accent) 26%);
+  text-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.34),
+    0 0 24px color-mix(in srgb, var(--weather-accent) 28%, transparent);
 }
 
 .temp-unit {
-  font-size: 1.4rem;
-  font-weight: 300;
-  color: var(--text2);
+  font-size: 1.65rem;
+  font-weight: 600;
+  color: var(--weather-accent);
   align-self: flex-start;
-  margin-top: 0.5rem;
+  margin-top: 0.72rem;
 }
 
 .feels-like-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.42rem;
   margin-bottom: 0.3rem;
   flex-wrap: wrap;
 }
@@ -812,8 +863,8 @@ h1 {
 }
 
 .feels-value {
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.92rem;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -835,8 +886,8 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  font-size: 0.88rem;
-  font-weight: 500;
+  font-size: 0.94rem;
+  font-weight: 650;
   color: var(--text);
 }
 
@@ -853,13 +904,14 @@ h1 {
 /* ─── Weather narrative ──────────────────────────── */
 
 .weather-narrative {
-  font-size: 0.84rem;
-  color: var(--text2);
+  position: relative;
+  font-size: 0.92rem;
+  color: var(--text);
   line-height: 1.5;
-  margin-top: 0.5rem;
-  margin-bottom: 0.2rem;
-  font-style: italic;
-  min-height: 1.2em;
+  margin-top: 0.75rem;
+  margin-bottom: 0.15rem;
+  min-height: 2.4em;
+  max-width: 30ch;
 }
 
 /* ─── Hours row (hidden but kept for JS compat) ─── */
@@ -942,6 +994,9 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .stat-label {
@@ -990,7 +1045,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 /* ─── Moon phase ─────────────────────────────────── */
 
 .moon-section {
-  padding: 0.8rem 0.85rem;
+  padding: 0.85rem 0.95rem;
   margin-bottom: 0.55rem;
 }
 
@@ -1018,6 +1073,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   flex-shrink: 0;
   width: 56px !important;
   max-height: unset;
+  box-shadow: 0 0 28px rgba(255, 241, 191, 0.10);
 }
 
 .moon-info {
@@ -1048,7 +1104,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 .aqi-value {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--aqi-accent);
 }
 
 .aqi-bar-wrap {
@@ -1077,7 +1133,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   top: -3px;
   width: 3px;
   height: 14px;
-  background: var(--text);
+  background: var(--aqi-accent);
   border-radius: 2px;
   transform: translateX(-50%);
   box-shadow: 0 0 4px rgba(0,0,0,0.5);
@@ -1093,7 +1149,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 
 .aqi-desc {
   font-size: 0.78rem;
-  color: var(--text2);
+  color: var(--aqi-accent);
   margin-top: 0.1rem;
 }
 
@@ -1122,7 +1178,7 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
 }
 
 .chart-section + .chart-section {
-  border-top: 1px solid var(--glass-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 h2 {
@@ -1223,10 +1279,50 @@ body.theme-light .bottom-bar { background: linear-gradient(to bottom, transparen
 
 /* ─── Page-level attribution (bottom of page) ──────── */
 
+.site-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  padding: 0 1.5rem 6.25rem;
+}
+
+.sources-panel {
+  width: min(100%, 860px);
+  padding: 0.2rem 0.35rem;
+}
+
+.sources-panel summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sources-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.sources-panel summary::after {
+  content: '▾';
+  color: var(--weather-accent);
+  transition: transform 0.2s ease;
+}
+
+.sources-panel[open] summary::after {
+  transform: rotate(180deg);
+}
+
 .page-attribution {
   text-align: center;
-  padding: 0.6rem 1rem 0.5rem;
-  font-size: 0.68rem;
+  padding: 0 1rem 0.8rem;
+  font-size: 0.72rem;
   color: var(--text3);
   line-height: 1.7;
 }

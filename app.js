@@ -19,15 +19,43 @@ let cachedLocation = null;
 // Each entry: { sunrise: Date, sunset: Date }
 let cachedSunEvents = [];
 
-// Line colours – always white-based (text is always white regardless of mode)
-function getLineColors() {
-  return [
-    'rgba(255,255,255,0.90)', 'rgba(255,255,255,0.68)',
-    'rgba(255,255,255,0.50)', 'rgba(255,255,255,0.38)',
-    'rgba(255,255,255,0.28)', 'rgba(255,255,255,0.20)',
-    'rgba(255,255,255,0.14)', 'rgba(255,255,255,0.10)'
-  ];
-}
+const METRIC_PALETTES = {
+  temperature_2m: {
+    mean: 'rgba(255, 205, 92, 0.98)',
+    band: 'rgba(255, 205, 92, 0.18)',
+    providers: [
+      'rgba(255, 241, 214, 0.72)', 'rgba(255, 221, 170, 0.54)', 'rgba(255, 198, 126, 0.48)',
+      'rgba(255, 177, 107, 0.40)', 'rgba(255, 159, 102, 0.34)', 'rgba(255, 140, 84, 0.30)'
+    ]
+  },
+  precipitation: {
+    mean: 'rgba(110, 188, 255, 0.95)',
+    band: 'rgba(110, 188, 255, 0.22)',
+    providers: [
+      'rgba(215, 239, 255, 0.60)', 'rgba(170, 221, 255, 0.48)', 'rgba(134, 201, 255, 0.42)',
+      'rgba(101, 183, 255, 0.36)', 'rgba(74, 162, 244, 0.32)', 'rgba(64, 140, 214, 0.28)'
+    ]
+  },
+  uv_index: {
+    mean: 'rgba(255, 132, 74, 0.98)',
+    band: 'rgba(255, 120, 74, 0.16)',
+    providers: [
+      'rgba(255, 229, 204, 0.64)', 'rgba(255, 196, 142, 0.52)', 'rgba(255, 165, 100, 0.42)',
+      'rgba(255, 136, 79, 0.34)', 'rgba(255, 108, 63, 0.30)', 'rgba(255, 82, 43, 0.26)'
+    ]
+  }
+};
+
+const WEATHER_ACCENTS = {
+  sunny:           { accent: '#ffd166', strong: '#ffb703', soft: 'rgba(255, 209, 102, 0.22)' },
+  'partly-cloudy': { accent: '#ffdca8', strong: '#ffb86b', soft: 'rgba(255, 202, 143, 0.20)' },
+  cloudy:          { accent: '#dbe7f4', strong: '#9bb7d4', soft: 'rgba(176, 196, 222, 0.18)' },
+  rainy:           { accent: '#74c0fc', strong: '#3b82f6', soft: 'rgba(96, 165, 250, 0.20)' },
+  snow:            { accent: '#e2f3ff', strong: '#9dd7ff', soft: 'rgba(191, 231, 255, 0.18)' },
+  stormy:          { accent: '#c4b5fd', strong: '#8b5cf6', soft: 'rgba(167, 139, 250, 0.20)' },
+  fog:             { accent: '#d6dde6', strong: '#94a3b8', soft: 'rgba(203, 213, 225, 0.18)' },
+  night:           { accent: '#a9c7ff', strong: '#3659d9', soft: 'rgba(63, 99, 220, 0.22)' }
+};
 
 // Dash patterns for distinguishing overlapping series
 const DASH_PATTERNS = [
@@ -79,14 +107,10 @@ function isDarkMode() {
 
 function getChartTheme() {
   return {
-    tickColor:         'rgba(255,255,255,0.60)',
-    gridColor:         'rgba(255,255,255,0.08)',
-    legendColor:       'rgba(255,255,255,0.85)',
-    noDataColor:       'rgba(255,255,255,0.42)',
-    midnightLineColor: 'rgba(110,160,255,0.38)',
-    midnightTextColor: 'rgba(110,160,255,0.55)',
-    noonLineColor:     'rgba(255,215,60,0.32)',
-    noonTextColor:     'rgba(255,215,60,0.52)',
+    tickColor:   'rgba(245,247,250,0.72)',
+    gridColor:   'rgba(255,255,255,0.06)',
+    legendColor: 'rgba(245,247,250,0.88)',
+    noDataColor: 'rgba(245,247,250,0.42)',
   };
 }
 
@@ -531,6 +555,11 @@ function setSidebarValue(id, text) {
   if (el) el.textContent = text ?? '–';
 }
 
+function setInlineColor(id, color) {
+  const el = document.getElementById(id);
+  if (el) el.style.color = color ?? '';
+}
+
 function updateSidebarStats(data, locationLabel) {
   const cur   = data?.current ?? {};
   const daily = data?.daily   ?? {};
@@ -578,6 +607,7 @@ function updateSidebarStats(data, locationLabel) {
   // Precipitation
   const precip = cur.precipitation;
   setSidebarValue('currentPrecip', Number.isFinite(precip) ? `${precip.toFixed(1)} mm/h` : '–');
+  setInlineColor('currentPrecip', Number.isFinite(precip) && precip > 0 ? 'rgba(125, 198, 255, 0.96)' : 'var(--text)');
 
   // Sunrise / sunset
   setSidebarValue('sunrise', formatLocalTime(daily.sunrise?.[0]));
@@ -586,6 +616,12 @@ function updateSidebarStats(data, locationLabel) {
   // UV index
   const uv = cur.uv_index;
   setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
+  setInlineColor(
+    'currentUV',
+    Number.isFinite(uv)
+      ? (uv >= 8 ? '#ff6b57' : uv >= 6 ? '#ff9f43' : uv >= 3 ? '#ffd166' : 'var(--text)')
+      : 'var(--text)'
+  );
 }
 
 // ─── Moon phase constants (needed before initWeatherBackground runs) ──────────
@@ -609,6 +645,13 @@ const WEATHER_META = {
   fog:            { icon: '🌫️', label: 'Nebel' },
   night:          { icon: '🌙',  label: 'Nacht' }
 };
+
+function applyWeatherAccent(cls) {
+  const accent = WEATHER_ACCENTS[cls] ?? WEATHER_ACCENTS.cloudy;
+  document.body.style.setProperty('--weather-accent', accent.accent);
+  document.body.style.setProperty('--weather-accent-strong', accent.strong);
+  document.body.style.setProperty('--weather-accent-soft', accent.soft);
+}
 
 function weatherCodeToClass(code, isDay) {
   if (!isDay) return 'night';
@@ -735,6 +778,7 @@ function setWeatherUI(cls) {
   const labelEl   = document.getElementById('weatherLabel');
   if (bg)        { bg.className = cls; }
   const meta = WEATHER_META[cls];
+  applyWeatherAccent(cls);
   if (indicator && meta) {
     iconEl.textContent  = meta.icon;
     labelEl.textContent = meta.label;
@@ -748,57 +792,6 @@ function setWeatherUI(cls) {
   setWeatherUI(h >= 6 && h < 20 ? 'sunny' : 'night');
   updateMoonPhase();
 })();
-
-// ─── Vertical midnight / noon grid-line plugin ────────────────────────────────
-
-const midnightNoonPlugin = {
-  id: 'midnightNoon',
-  beforeDatasetsDraw(chart) {
-    const { ctx, scales, chartArea } = chart;
-    const xScale = scales.x;
-    if (!xScale || !chartArea) return;
-    const { top, bottom } = chartArea;
-    const xMin = xScale.min;
-    const xMax = xScale.max;
-
-    ctx.save();
-    ctx.lineWidth = 1;
-
-    const startDay = new Date(xMin);
-    startDay.setHours(0, 0, 0, 0);
-
-    for (let d = new Date(startDay); d.getTime() <= xMax; d.setDate(d.getDate() + 1)) {
-      const theme = getChartTheme();
-      // Midnight  (0:00)
-      const midMs = d.getTime();
-      if (midMs >= xMin && midMs <= xMax) {
-        const px = xScale.getPixelForValue(midMs);
-        ctx.setLineDash([5, 6]);
-        ctx.strokeStyle = theme.midnightLineColor;
-        ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = theme.midnightTextColor;
-        ctx.font = `10px ${Chart.defaults.font.family}`;
-        ctx.textAlign = 'center';
-        ctx.fillText('0:00', px, top + 11);
-      }
-      // Noon  (12:00)
-      const noonMs = d.getTime() + 12 * MS_PER_HOUR;
-      if (noonMs >= xMin && noonMs <= xMax) {
-        const px = xScale.getPixelForValue(noonMs);
-        ctx.setLineDash([5, 6]);
-        ctx.strokeStyle = theme.noonLineColor;
-        ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = theme.noonTextColor;
-        ctx.font = `10px ${Chart.defaults.font.family}`;
-        ctx.textAlign = 'center';
-        ctx.fillText('12:00', px, top + 11);
-      }
-    }
-    ctx.restore();
-  }
-};
 
 // ─── "Jetzt" (now) vertical line plugin ──────────────────────────────────────
 
@@ -871,23 +864,156 @@ const dayNightPlugin = {
 
 // ─── Chart rendering ──────────────────────────────────────────────────────────
 
+function computeAggregateSeries(seriesByProvider, metricKey) {
+  const buckets = new Map();
+
+  for (const provider of seriesByProvider) {
+    for (const point of provider.points) {
+      if (!Number.isFinite(point[metricKey])) continue;
+      const ts = point.x instanceof Date ? point.x.getTime() : new Date(point.x).getTime();
+      if (!Number.isFinite(ts)) continue;
+      const values = buckets.get(ts) ?? [];
+      values.push(point[metricKey]);
+      buckets.set(ts, values);
+    }
+  }
+
+  return Array.from(buckets.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([ts, values]) => {
+      const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+      const spread = values.length > 1 ? Math.sqrt(variance) : 0;
+      return {
+        x: new Date(ts),
+        mean,
+        lower: metricKey === 'precipitation' ? Math.max(0, mean - spread) : mean - spread,
+        upper: mean + spread
+      };
+    })
+    .filter((point) => Number.isFinite(point.mean));
+}
+
+function getMetricUpperBound(metricKey, datasets, aggregateSeries) {
+  const aggregateMax = aggregateSeries.reduce((max, point) => Math.max(max, point.upper ?? point.mean ?? 0), 0);
+  const datasetMax = datasets.reduce((max, dataset) => {
+    const localMax = (dataset.data ?? []).reduce((innerMax, point) => {
+      const value = Array.isArray(point?.y) ? point.y[1] : point?.y;
+      return Number.isFinite(value) ? Math.max(innerMax, value) : innerMax;
+    }, 0);
+    return Math.max(max, localMax);
+  }, 0);
+  const maxValue = Math.max(aggregateMax, datasetMax);
+  if (metricKey === 'precipitation') return Math.max(1, Math.ceil(maxValue * 1.2));
+  if (metricKey === 'uv_index') return Math.max(6, Math.ceil(maxValue * 1.15));
+  return null;
+}
+
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
 
   if (charts[canvasId]) charts[canvasId].destroy();
 
-  // Fixed 48-hour window: today 00:00 → day-after-tomorrow 00:00
   const xMin = getTodayMidnight();
   const xMax = xMin + 48 * MS_PER_HOUR;
-
   const theme = getChartTheme();
+  const palette = METRIC_PALETTES[metricKey] ?? METRIC_PALETTES.temperature_2m;
+  const aggregateSeries = computeAggregateSeries(seriesByProvider, metricKey);
 
-  // Unit suffixes for tooltips
   const unitSuffix = {
     temperature_2m: '°C',
     precipitation:  ' mm/h',
     uv_index:       ''
   };
+
+  const providerDatasets = metricKey === 'precipitation'
+    ? []
+    : seriesByProvider
+        .map((provider, idx) => {
+          const data = getMetricSeries(provider.points, metricKey);
+          if (data.length === 0) return null;
+          return {
+            type: 'line',
+            label: provider.label,
+            data,
+            borderColor: palette.providers[idx % palette.providers.length],
+            borderWidth: 1.45,
+            borderDash: DASH_PATTERNS[idx % DASH_PATTERNS.length],
+            fill: false,
+            pointRadius: 0,
+            tension: 0.25
+          };
+        })
+        .filter(Boolean);
+
+  const aggregateDatasets = aggregateSeries.length === 0
+    ? []
+    : metricKey === 'precipitation'
+      ? [
+          {
+            type: 'bar',
+            label: 'Konfidenzband',
+            data: aggregateSeries.map((point) => ({ x: point.x, y: [point.lower, point.upper] })),
+            backgroundColor: palette.band,
+            borderColor: 'transparent',
+            borderSkipped: false,
+            borderRadius: 999,
+            barPercentage: 0.98,
+            categoryPercentage: 1.0
+          },
+          {
+            type: 'bar',
+            label: 'Modellmittel',
+            data: aggregateSeries.map((point) => ({ x: point.x, y: point.mean })),
+            backgroundColor: palette.mean,
+            borderColor: palette.mean,
+            borderWidth: 0,
+            borderSkipped: false,
+            borderRadius: 999,
+            barPercentage: 0.58,
+            categoryPercentage: 1.0
+          }
+        ]
+      : [
+          {
+            type: 'line',
+            label: 'Band-Untergrenze',
+            legendHidden: true,
+            data: aggregateSeries.map((point) => ({ x: point.x, y: point.lower })),
+            borderColor: 'transparent',
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            fill: false,
+            tension: 0.25
+          },
+          {
+            type: 'line',
+            label: 'Konfidenzband',
+            data: aggregateSeries.map((point) => ({ x: point.x, y: point.upper })),
+            borderColor: 'transparent',
+            backgroundColor: palette.band,
+            pointRadius: 0,
+            fill: '-1',
+            tension: 0.25
+          },
+          {
+            type: 'line',
+            label: 'Modellmittel',
+            data: aggregateSeries.map((point) => ({ x: point.x, y: point.mean })),
+            borderColor: palette.mean,
+            borderWidth: 3,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            pointBackgroundColor: palette.mean,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1,
+            fill: false,
+            tension: 0.28
+          }
+        ];
+
+  const datasets = [...aggregateDatasets, ...providerDatasets];
+  const yUpperBound = getMetricUpperBound(metricKey, datasets, aggregateSeries);
 
   const sharedScales = {
     x: {
@@ -905,7 +1031,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         font: { size: 11 },
         maxTicksLimit: 13
       },
-      grid: { display: false }  // vertical lines handled by midnightNoonPlugin
+      grid: { display: false }
     },
     y: {
       grid: {
@@ -918,38 +1044,19 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         padding: 8
       },
       border: { dash: [4, 4] },
-      // Temperature chart always includes 0°C on Y-axis
       ...(metricKey === 'temperature_2m'
         ? { afterDataLimits: (scale) => { scale.min = Math.min(scale.min, 0); } }
         : metricKey === 'precipitation'
-          ? { min: 0, max: 1 }
+          ? { min: 0, suggestedMax: yUpperBound }
           : metricKey === 'uv_index'
-            ? { min: 0, max: 8 }
+            ? { min: 0, suggestedMax: yUpperBound }
             : {})
     }
   };
 
-  const datasets = seriesByProvider
-    .map((provider, idx) => {
-      const data = getMetricSeries(provider.points, metricKey);
-      if (data.length === 0) return null;
-      const colors = getLineColors();
-      return {
-        label: provider.label,
-        data,
-        borderColor: colors[idx % colors.length],
-        borderWidth: 2,
-        borderDash: DASH_PATTERNS[idx % DASH_PATTERNS.length],
-        fill: false,
-        pointRadius: 0,
-        tension: 0.25
-      };
-    })
-    .filter(Boolean);
-
   if (datasets.length === 0) {
     charts[canvasId] = new Chart(ctx, {
-      type: 'line',
+      type: metricKey === 'precipitation' ? 'bar' : 'line',
       data: { datasets: [] },
       options: {
         responsive: true,
@@ -958,7 +1065,6 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       plugins: [
         dayNightPlugin,
-        midnightNoonPlugin,
         nowLinePlugin,
         {
           id: 'noDataLabel',
@@ -981,7 +1087,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   const suffix = unitSuffix[metricKey] ?? '';
 
   charts[canvasId] = new Chart(ctx, {
-    type: 'line',
+    type: metricKey === 'precipitation' ? 'bar' : 'line',
     data: { datasets },
     options: {
       parsing: false,
@@ -994,9 +1100,12 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             color: theme.legendColor,
             font: { size: 11 },
             usePointStyle: true,
-            pointStyle: 'line',
+            pointStyle: metricKey === 'precipitation' ? 'rectRounded' : 'line',
             boxWidth: 32,
-            padding: 16
+            padding: 16,
+            filter(item, data) {
+              return !data.datasets[item.datasetIndex]?.legendHidden;
+            }
           }
         },
         tooltip: {
@@ -1010,6 +1119,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             label(item) {
               const val = item.parsed.y;
               if (val == null) return null;
+              if (Array.isArray(val)) return ` ${item.dataset.label}: ${val[0].toFixed(1)}–${val[1].toFixed(1)}${suffix}`;
               return ` ${item.dataset.label}: ${val.toFixed(1)}${suffix}`;
             }
           }
@@ -1017,7 +1127,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       scales: sharedScales
     },
-    plugins: [dayNightPlugin, midnightNoonPlugin, nowLinePlugin]
+    plugins: [dayNightPlugin, nowLinePlugin]
   });
 }
 
@@ -1094,34 +1204,48 @@ function drawMoonCanvas(phase) {
 
   const lunarCycle  = LUNAR_CYCLE_DAYS;
   const fraction    = phase / lunarCycle; // 0–1
-  const illuminated = (1 - Math.cos(fraction * Math.PI * 2)) / 2; // 0–1
+  const angle       = fraction * Math.PI * 2;
+  const waxing      = fraction < 0.5;
+  const phaseOffset = Math.cos(angle) * r;
 
-  if (illuminated > 0.01) {
-    ctx.save();
-    // Clip to circle
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.clip();
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
 
-    const isWaxing = fraction <= 0.5;
-    const angle    = fraction * Math.PI * 2;
+  const litGradient = ctx.createRadialGradient(cx - r * 0.24, cy - r * 0.28, r * 0.16, cx, cy, r);
+  litGradient.addColorStop(0, 'rgba(255, 252, 228, 0.98)');
+  litGradient.addColorStop(0.55, 'rgba(247, 238, 198, 0.96)');
+  litGradient.addColorStop(1, 'rgba(225, 213, 166, 0.92)');
 
-    ctx.beginPath();
-    if (isWaxing) {
-      // Right half lit; terminator arc sweeps from full disk toward new moon
-      ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
-      const tx = r * Math.cos(angle); // > 0 near new moon, < 0 near full
-      ctx.ellipse(cx + tx, cy, Math.abs(tx), r, 0, Math.PI / 2, -Math.PI / 2, true);
-    } else {
-      // Left half lit; terminator arc sweeps from full moon toward new moon
-      ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, false);
-      const tx = r * Math.cos(angle); // < 0 near full moon, > 0 near new moon
-      ctx.ellipse(cx + tx, cy, Math.abs(tx), r, 0, -Math.PI / 2, Math.PI / 2, true);
-    }
-    ctx.fillStyle = 'rgba(255, 252, 210, 0.92)';
-    ctx.fill();
-    ctx.restore();
-  }
+  ctx.fillStyle = litGradient;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(8, 8, 24, 0.84)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, waxing ? Math.PI / 2 : -Math.PI / 2, waxing ? -Math.PI / 2 : Math.PI / 2, !waxing);
+  ctx.ellipse(
+    cx + phaseOffset,
+    cy,
+    Math.max(0.8, Math.abs(phaseOffset)),
+    r,
+    0,
+    waxing ? -Math.PI / 2 : Math.PI / 2,
+    waxing ? Math.PI / 2 : -Math.PI / 2,
+    waxing
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 247, 207, 0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx + phaseOffset, cy, Math.max(0.8, Math.abs(phaseOffset)), r, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
 
   // Outer ring
   ctx.beginPath();
@@ -1174,6 +1298,7 @@ async function fetchAndDisplayAQI(coords) {
 
     setSidebarValue('aqiValue', String(Math.round(aqi)));
     setSidebarValue('aqiDesc',  level.label);
+    document.body.style.setProperty('--aqi-accent', level.color);
     const markerEl = document.getElementById('aqiMarker');
     if (markerEl) markerEl.style.left = `${pct}%`;
   } catch {
