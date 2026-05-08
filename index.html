@@ -41,18 +41,21 @@
             <span class="temp-unit">°C</span>
           </div>
 
+          <div class="temp-range-row">
+            <span class="temp-range-item"><span class="temp-range-icon">↑</span><span id="tempMax">–</span></span>
+            <span class="temp-range-sep">/</span>
+            <span class="temp-range-item"><span class="temp-range-icon">↓</span><span id="tempMin">–</span></span>
+          </div>
+
           <div class="feels-like-row">
             <span class="feels-label">Gefühlt</span>
             <span class="feels-value" id="feelsLike">–</span>
+            <span class="feels-sep">·</span>
+            <span class="feels-label">Regen</span>
+            <span class="feels-value" id="rainProb">–</span>
           </div>
-        </div>
 
-        <div class="hours-row">
-          <span>Vorhersagedauer</span>
-          <div class="hours-input-wrap">
-            <input id="hoursInput" type="number" min="6" max="72" value="24" />
-            <span>h</span>
-          </div>
+          <p class="weather-narrative" id="weatherNarrative"></p>
         </div>
 
         <p id="status" class="status">Bereit.</p>
@@ -151,15 +154,15 @@
       <!-- ─── Charts ───────────────────────────────────────── -->
       <main class="charts-main">
         <section class="chart-section glass">
-          <h2>Temperatur (°C)</h2>
+          <h2><span class="chart-icon">🌡️</span> Temperatur (°C)</h2>
           <canvas id="tempChart"></canvas>
         </section>
         <section class="chart-section glass">
-          <h2>Regenmenge (mm/h)</h2>
+          <h2><span class="chart-icon">🌧️</span> Niederschlag (mm/h)</h2>
           <canvas id="rainChart"></canvas>
         </section>
         <section class="chart-section glass">
-          <h2>UV-Index</h2>
+          <h2><span class="chart-icon">☀️</span> UV-Index</h2>
           <canvas id="uvChart"></canvas>
         </section>
       </main>

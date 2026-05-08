@@ -5,25 +5,28 @@ const locationInput = document.getElementById('locationInput');
 const DEFAULT_COORDS = { latitude: 51.05, longitude: 13.74 };
 const DEFAULT_LOCATION_QUERY = 'Dresden';
 
+// Fixed 48-hour window: today 00:00 → tomorrow 23:59 (day after tomorrow 00:00)
+function getTodayMidnight() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 // Cached geocoded location – avoids re-geocoding when only hours change
 let cachedLocation = null;
 
-// Monochromatic line colours (theme-aware); set at render time
+// Cached sunrise/sunset data for day/night chart backgrounds
+// Each entry: { sunrise: Date, sunset: Date }
+let cachedSunEvents = [];
+
+// Line colours – always white-based (text is always white regardless of mode)
 function getLineColors() {
-  const dark = isDarkMode();
-  return dark
-    ? [
-        'rgba(255,255,255,0.90)', 'rgba(255,255,255,0.68)',
-        'rgba(255,255,255,0.50)', 'rgba(255,255,255,0.38)',
-        'rgba(255,255,255,0.28)', 'rgba(255,255,255,0.20)',
-        'rgba(255,255,255,0.14)', 'rgba(255,255,255,0.10)'
-      ]
-    : [
-        'rgba(0,0,0,0.80)', 'rgba(0,0,0,0.60)',
-        'rgba(0,0,0,0.44)', 'rgba(0,0,0,0.32)',
-        'rgba(0,0,0,0.24)', 'rgba(0,0,0,0.17)',
-        'rgba(0,0,0,0.12)', 'rgba(0,0,0,0.08)'
-      ];
+  return [
+    'rgba(255,255,255,0.90)', 'rgba(255,255,255,0.68)',
+    'rgba(255,255,255,0.50)', 'rgba(255,255,255,0.38)',
+    'rgba(255,255,255,0.28)', 'rgba(255,255,255,0.20)',
+    'rgba(255,255,255,0.14)', 'rgba(255,255,255,0.10)'
+  ];
 }
 
 // Dash patterns for distinguishing overlapping series
@@ -75,16 +78,15 @@ function isDarkMode() {
 }
 
 function getChartTheme() {
-  const dark = isDarkMode();
   return {
-    tickColor:         dark ? 'rgba(255,255,255,0.60)' : 'rgba(0,0,0,0.58)',
-    gridColor:         dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-    legendColor:       dark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.78)',
-    noDataColor:       dark ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.42)',
-    midnightLineColor: dark ? 'rgba(110,160,255,0.38)' : 'rgba(60,100,220,0.38)',
-    midnightTextColor: dark ? 'rgba(110,160,255,0.55)' : 'rgba(60,100,220,0.58)',
-    noonLineColor:     dark ? 'rgba(255,215,60,0.32)'  : 'rgba(190,130,0,0.42)',
-    noonTextColor:     dark ? 'rgba(255,215,60,0.52)'  : 'rgba(190,130,0,0.62)',
+    tickColor:         'rgba(255,255,255,0.60)',
+    gridColor:         'rgba(255,255,255,0.08)',
+    legendColor:       'rgba(255,255,255,0.85)',
+    noDataColor:       'rgba(255,255,255,0.42)',
+    midnightLineColor: 'rgba(110,160,255,0.38)',
+    midnightTextColor: 'rgba(110,160,255,0.55)',
+    noonLineColor:     'rgba(255,215,60,0.32)',
+    noonTextColor:     'rgba(255,215,60,0.52)',
   };
 }
 
@@ -98,7 +100,7 @@ function applyChartDefaults() {
 
 applyChartDefaults();
 
-// Re-render when OS colour scheme changes
+// Re-render when OS colour scheme changes (chart theme is now always white-based)
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   applyChartDefaults();
   if (Object.values(charts).some(Boolean)) loadAndRender();
@@ -255,11 +257,17 @@ async function fetchDwdSeries(hours, coords) {
 }
 
 async function fetchOpenMeteoSeries(hours, coords, model = null) {
+  // Include past hours from today's midnight so the full today+tomorrow window is covered
+  const now = Date.now();
+  const todayMidnight = getTodayMidnight();
+  const pastHours = Math.floor((now - todayMidnight) / MS_PER_HOUR);
+
   const params = new URLSearchParams({
     latitude: String(coords.latitude),
     longitude: String(coords.longitude),
     hourly: 'temperature_2m,precipitation,uv_index',
     forecast_hours: String(hours),
+    past_hours: String(pastHours),
     timezone: 'auto'
   });
   if (model) params.set('models', model);
@@ -272,9 +280,8 @@ async function fetchOpenMeteoSeries(hours, coords, model = null) {
   const temperatures = data?.hourly?.temperature_2m ?? [];
   const precipitation = data?.hourly?.precipitation ?? [];
   const uvIndex = data?.hourly?.uv_index ?? [];
-  const maxLen = Math.min(hours, times.length);
 
-  return Array.from({ length: maxLen }, (_, idx) => ({
+  return Array.from({ length: times.length }, (_, idx) => ({
     x: new Date(times[idx]),
     temperature_2m: Number.isFinite(temperatures[idx]) ? temperatures[idx] : null,
     precipitation: Number.isFinite(precipitation[idx]) ? precipitation[idx] : null,
@@ -337,12 +344,13 @@ async function fetch7TimerSeries(hours, coords) {
 }
 
 async function fetchBrightSkySeries(hours, coords) {
-  const now = new Date();
-  const lastDate = new Date(now.getTime() + hours * 3_600_000);
+  // Start from today midnight to cover full today + tomorrow window
+  const startDate = new Date(getTodayMidnight());
+  const lastDate  = new Date(startDate.getTime() + 48 * 3_600_000);
   const params = new URLSearchParams({
     lat: String(coords.latitude),
     lon: String(coords.longitude),
-    date: now.toISOString(),
+    date: startDate.toISOString(),
     last_date: lastDate.toISOString()
   });
   const url = `https://api.brightsky.dev/weather?${params.toString()}`;
@@ -352,7 +360,6 @@ async function fetchBrightSkySeries(hours, coords) {
 
   const weather = data?.weather ?? [];
   return weather
-    .slice(0, hours)
     .map((w) => ({
       x: new Date(w.timestamp),
       temperature_2m: Number.isFinite(w.temperature) ? w.temperature : null,
@@ -623,8 +630,8 @@ async function applyWeatherBackground(coords) {
       latitude:  String(coords.latitude),
       longitude: String(coords.longitude),
       current:   'weather_code,is_day,temperature_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure,uv_index,visibility,precipitation',
-      daily:     'sunrise,sunset',
-      forecast_days: '1',
+      daily:     'sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code',
+      forecast_days: '2',
       timezone:  'auto'
     });
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`);
@@ -635,11 +642,90 @@ async function applyWeatherBackground(coords) {
     const cls   = weatherCodeToClass(code, isDay);
     setWeatherUI(cls);
     updateSidebarStats(data, coords.label ?? '');
+    updateHeroExtras(data);
     updateMoonPhase();
     fetchAndDisplayAQI(coords);
+
+    // Cache sunrise/sunset for chart day/night shading
+    const sunrises = data?.daily?.sunrise ?? [];
+    const sunsets  = data?.daily?.sunset  ?? [];
+    cachedSunEvents = sunrises.map((sr, i) => ({
+      sunrise: new Date(sr),
+      sunset:  new Date(sunsets[i])
+    })).filter(({ sunrise, sunset }) => !isNaN(sunrise) && !isNaN(sunset));
   } catch (err) {
     console.warn('[weather] background fetch failed:', err);
   }
+}
+
+function updateHeroExtras(data) {
+  const daily = data?.daily ?? {};
+  const cur   = data?.current ?? {};
+
+  // Today min/max
+  const maxTemp = daily.temperature_2m_max?.[0];
+  const minTemp = daily.temperature_2m_min?.[0];
+  const el = (id) => document.getElementById(id);
+  if (el('tempMax')) el('tempMax').textContent = Number.isFinite(maxTemp) ? `${Math.round(maxTemp)} °C` : '–';
+  if (el('tempMin')) el('tempMin').textContent = Number.isFinite(minTemp) ? `${Math.round(minTemp)} °C` : '–';
+
+  // Rain probability today
+  const rainProb = daily.precipitation_probability_max?.[0];
+  if (el('rainProb')) el('rainProb').textContent = Number.isFinite(rainProb) ? `${Math.round(rainProb)} %` : '–';
+
+  // Narrative
+  updateWeatherNarrative(data);
+}
+
+function updateWeatherNarrative(data) {
+  const el = document.getElementById('weatherNarrative');
+  if (!el) return;
+
+  const cur   = data?.current ?? {};
+  const daily = data?.daily   ?? {};
+
+  const code  = cur.weather_code ?? -1;
+  const isDay = Boolean(cur.is_day ?? 1);
+  const cls   = weatherCodeToClass(code, isDay);
+  const meta  = WEATHER_META[cls] ?? {};
+
+  const todayMax    = daily.temperature_2m_max?.[0];
+  const tomorrowMax = daily.temperature_2m_max?.[1];
+  const rainProb    = daily.precipitation_probability_max?.[0];
+  const uv          = cur.uv_index;
+
+  const parts = [];
+
+  // Current condition sentence
+  const conditionMap = {
+    sunny:           'Aktuell sonnig und klar.',
+    'partly-cloudy': 'Aktuell leicht bewölkt.',
+    cloudy:          'Aktuell bewölkt.',
+    rainy:           'Aktuell regnerisch.',
+    snow:            'Aktuell Schneefall.',
+    stormy:          'Aktuell Gewitter.',
+    fog:             'Aktuell neblig.',
+    night:           'Ruhige Nacht.'
+  };
+  if (conditionMap[cls]) parts.push(conditionMap[cls]);
+
+  // Rain outlook
+  if (Number.isFinite(rainProb)) {
+    if (rainProb >= 70) parts.push('Regen sehr wahrscheinlich.');
+    else if (rainProb >= 40) parts.push(`Regenwahrscheinlichkeit ${Math.round(rainProb)} %.`);
+  }
+
+  // Temp tomorrow vs today
+  if (Number.isFinite(todayMax) && Number.isFinite(tomorrowMax)) {
+    const diff = tomorrowMax - todayMax;
+    if (diff >= 3) parts.push(`Morgen ${Math.round(diff)} °C wärmer.`);
+    else if (diff <= -3) parts.push(`Morgen ${Math.abs(Math.round(diff))} °C kälter.`);
+  }
+
+  // UV warning
+  if (Number.isFinite(uv) && uv >= 6) parts.push(`UV-Index hoch (${uv.toFixed(0)}) – Sonnenschutz empfohlen.`);
+
+  el.textContent = parts.length > 0 ? parts.join(' ') : '';
 }
 
 function setWeatherUI(cls) {
@@ -714,6 +800,74 @@ const midnightNoonPlugin = {
   }
 };
 
+// ─── "Jetzt" (now) vertical line plugin ──────────────────────────────────────
+
+const nowLinePlugin = {
+  id: 'nowLine',
+  beforeDatasetsDraw(chart) {
+    const { ctx, scales, chartArea } = chart;
+    const xScale = scales.x;
+    if (!xScale || !chartArea) return;
+    const now = Date.now();
+    if (now < xScale.min || now > xScale.max) return;
+    const px = xScale.getPixelForValue(now);
+    const { top, bottom } = chartArea;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.90)';
+    ctx.font = `bold 10px ${Chart.defaults.font.family}`;
+    ctx.textAlign = 'center';
+    ctx.fillText('Jetzt', px, top - 2);
+    ctx.restore();
+  }
+};
+
+// ─── Day / night background shading plugin ───────────────────────────────────
+
+const dayNightPlugin = {
+  id: 'dayNight',
+  beforeDatasetsDraw(chart) {
+    const { ctx, scales, chartArea } = chart;
+    const xScale = scales.x;
+    if (!xScale || !chartArea || cachedSunEvents.length === 0) return;
+    const { top, bottom, left, right } = chartArea;
+    const xMin = xScale.min;
+    const xMax = xScale.max;
+    ctx.save();
+
+    // Draw night bands (before sunrise and after sunset for each day)
+    for (const { sunrise, sunset } of cachedSunEvents) {
+      const dayMidnight = new Date(sunrise);
+      dayMidnight.setHours(0, 0, 0, 0);
+      const nextMidnight = dayMidnight.getTime() + 24 * MS_PER_HOUR;
+
+      // Before sunrise band
+      const nightStartMs = Math.max(xMin, dayMidnight.getTime());
+      const nightEndMs   = Math.min(xMax, sunrise.getTime());
+      if (nightStartMs < nightEndMs) {
+        const x1 = xScale.getPixelForValue(nightStartMs);
+        const x2 = xScale.getPixelForValue(nightEndMs);
+        ctx.fillStyle = 'rgba(0,0,40,0.18)';
+        ctx.fillRect(x1, top, x2 - x1, bottom - top);
+      }
+
+      // After sunset band
+      const eveningStartMs = Math.max(xMin, sunset.getTime());
+      const eveningEndMs   = Math.min(xMax, nextMidnight);
+      if (eveningStartMs < eveningEndMs) {
+        const x1 = xScale.getPixelForValue(eveningStartMs);
+        const x2 = xScale.getPixelForValue(eveningEndMs);
+        ctx.fillStyle = 'rgba(0,0,40,0.18)';
+        ctx.fillRect(x1, top, x2 - x1, bottom - top);
+      }
+    }
+    ctx.restore();
+  }
+};
+
 // ─── Chart rendering ──────────────────────────────────────────────────────────
 
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
@@ -721,26 +875,34 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
 
   if (charts[canvasId]) charts[canvasId].destroy();
 
-  const hours       = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
-  const now         = Date.now();
-  const xRangeEnd   = now + hours * MS_PER_HOUR;
+  // Fixed 48-hour window: today 00:00 → day-after-tomorrow 00:00
+  const xMin = getTodayMidnight();
+  const xMax = xMin + 48 * MS_PER_HOUR;
 
   const theme = getChartTheme();
+
+  // Unit suffixes for tooltips
+  const unitSuffix = {
+    temperature_2m: '°C',
+    precipitation:  ' mm/h',
+    uv_index:       ''
+  };
 
   const sharedScales = {
     x: {
       type: 'time',
-      min: now,
-      max: xRangeEnd,
+      min: xMin,
+      max: xMax,
       time: {
         unit: 'hour',
-        displayFormats: { hour: 'HH:mm', day: 'dd.MM.' },
-        tooltipFormat: 'dd.MM.yyyy HH:mm'
+        displayFormats: { hour: 'HH:mm', day: 'EEE dd.MM.' },
+        tooltipFormat: 'EEE dd.MM. HH:mm'
       },
       ticks: {
         color: theme.tickColor,
         maxRotation: 0,
-        font: { size: 11 }
+        font: { size: 11 },
+        maxTicksLimit: 13
       },
       grid: { display: false }  // vertical lines handled by midnightNoonPlugin
     },
@@ -754,7 +916,11 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         font: { size: 11 },
         padding: 8
       },
-      border: { dash: [4, 4] }
+      border: { dash: [4, 4] },
+      // Temperature chart always includes 0°C on Y-axis
+      afterDataLimits: metricKey === 'temperature_2m'
+        ? (scale) => { scale.min = Math.min(scale.min, 0); }
+        : undefined
     }
   };
 
@@ -786,7 +952,9 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         scales: sharedScales
       },
       plugins: [
+        dayNightPlugin,
         midnightNoonPlugin,
+        nowLinePlugin,
         {
           id: 'noDataLabel',
           afterDraw(chart) {
@@ -804,6 +972,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     });
     return;
   }
+
+  const suffix = unitSuffix[metricKey] ?? '';
 
   charts[canvasId] = new Chart(ctx, {
     type: 'line',
@@ -823,23 +993,37 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             boxWidth: 32,
             padding: 16
           }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15,20,35,0.88)',
+          titleColor: 'rgba(255,255,255,0.95)',
+          bodyColor: 'rgba(255,255,255,0.75)',
+          borderColor: 'rgba(255,255,255,0.15)',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label(item) {
+              const val = item.parsed.y;
+              if (val == null) return null;
+              return ` ${item.dataset.label}: ${val.toFixed(1)}${suffix}`;
+            }
+          }
         }
       },
       scales: sharedScales
     },
-    plugins: [midnightNoonPlugin]
+    plugins: [dayNightPlugin, midnightNoonPlugin, nowLinePlugin]
   });
 }
 
 async function loadAndRender() {
   try {
-    const hours = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
+    // Always fetch 48 hours to cover today + tomorrow
+    const hours = 48;
     const query = locationInput.value.trim() || DEFAULT_LOCATION_QUERY;
     setStatus('Standort wird gesucht …');
 
     let location;
-    // Reuse cached location if the input text matches the previously resolved label
-    // (prevents re-geocoding when only the hours change)
     if (cachedLocation && cachedLocation.label === query) {
       location = cachedLocation;
     } else {
@@ -999,7 +1183,7 @@ loadBtn.addEventListener('click', () => {
   cachedLocation = null;
   loadAndRender();
 });
-hoursInput.addEventListener('change', loadAndRender);
+if (hoursInput) hoursInput.addEventListener('change', loadAndRender);
 locationInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     cachedLocation = null; // force re-geocode on manual entry
