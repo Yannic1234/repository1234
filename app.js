@@ -1014,11 +1014,17 @@ function getWeatherAccentColor() {
 function buildTemperatureColorPalette() {
   const accent = getWeatherAccentColor();
   let r = 255, g = 205, b = 92;
-  const hexMatch = accent.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-  if (hexMatch) {
-    r = parseInt(hexMatch[1], 16);
-    g = parseInt(hexMatch[2], 16);
-    b = parseInt(hexMatch[3], 16);
+  // Support both 6-digit (#rrggbb) and 3-digit (#rgb) shorthand hex formats
+  const hex6 = accent.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  const hex3 = accent.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i);
+  if (hex6) {
+    r = parseInt(hex6[1], 16);
+    g = parseInt(hex6[2], 16);
+    b = parseInt(hex6[3], 16);
+  } else if (hex3) {
+    r = parseInt(hex3[1] + hex3[1], 16);
+    g = parseInt(hex3[2] + hex3[2], 16);
+    b = parseInt(hex3[3] + hex3[3], 16);
   } else {
     const rgbMatch = accent.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/);
     if (rgbMatch) { r = +rgbMatch[1]; g = +rgbMatch[2]; b = +rgbMatch[3]; }
@@ -1381,7 +1387,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
               const ticks = [];
               const minV = Math.round(scale.min);
               const maxV = Math.round(scale.max);
-              for (let v = minV; v <= maxV + 0.001; v += step) {
+              for (let v = minV; v <= maxV + 0.001 /* float-drift guard */; v += step) {
                 ticks.push({ value: v });
               }
               scale.ticks = ticks;
