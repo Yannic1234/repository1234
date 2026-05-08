@@ -919,9 +919,13 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       border: { dash: [4, 4] },
       // Temperature chart always includes 0°C on Y-axis
-      afterDataLimits: metricKey === 'temperature_2m'
-        ? (scale) => { scale.min = Math.min(scale.min, 0); }
-        : undefined
+      ...(metricKey === 'temperature_2m'
+        ? { afterDataLimits: (scale) => { scale.min = Math.min(scale.min, 0); } }
+        : metricKey === 'precipitation'
+          ? { min: 0, max: 1 }
+          : metricKey === 'uv_index'
+            ? { min: 0, max: 8 }
+            : {})
     }
   };
 

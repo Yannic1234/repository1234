@@ -63,7 +63,7 @@
         <!-- ─── Stats grid (compact rows) ───────────────────── -->
         <div class="stats-grid">
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">Wind</span>
             <div class="stat-wind-row">
               <svg id="windArrow" class="wind-svg" viewBox="0 0 24 24"
@@ -78,37 +78,37 @@
             </div>
           </div>
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">Feuchtigkeit</span>
             <span class="stat-value" id="humidity">–</span>
           </div>
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">Luftdruck</span>
             <span class="stat-value" id="pressure">–</span>
           </div>
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">Sichtweite</span>
             <span class="stat-value" id="visibility">–</span>
           </div>
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">Aufgang</span>
             <span class="stat-value" id="sunrise">–</span>
           </div>
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">Untergang</span>
             <span class="stat-value" id="sunset">–</span>
           </div>
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">UV-Index</span>
             <span class="stat-value" id="currentUV">–</span>
           </div>
 
-          <div class="stat-card glass-inner">
+          <div class="stat-card">
             <span class="stat-label">Niederschlag</span>
             <span class="stat-value" id="currentPrecip">–</span>
           </div>
@@ -148,16 +148,6 @@
           <span class="aqi-desc" id="aqiDesc">–</span>
         </div>
 
-        <!-- ─── Attribution ───────────────────────────────── -->
-        <div class="sidebar-attribution">
-          <span>Daten:</span>
-          <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
-          <a href="https://www.dwd.de/" target="_blank" rel="noopener">DWD</a> ·
-          <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky</a> ·
-          <a href="https://api.met.no/" target="_blank" rel="noopener">MET Norway</a> ·
-          <a href="https://www.7timer.info/" target="_blank" rel="noopener">7Timer!</a>
-        </div>
-
       </aside>
 
       <!-- ─── Charts ───────────────────────────────────────── -->
@@ -192,6 +182,16 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <!-- ─── Page-level attribution ──────────────────────── -->
+    <div class="page-attribution">
+      <span>Daten:</span>
+      <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+      <a href="https://www.dwd.de/" target="_blank" rel="noopener">DWD</a> ·
+      <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky</a> ·
+      <a href="https://api.met.no/" target="_blank" rel="noopener">MET Norway</a> ·
+      <a href="https://www.7timer.info/" target="_blank" rel="noopener">7Timer!</a>
     </div>
 
     <script type="module" src="app.js"></script>
