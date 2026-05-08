@@ -911,6 +911,16 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
   ctx.closePath();
 }
 
+function formatFixedOneDecimal(value) {
+  return value.toFixed(1).replace(/\.0$/, '');
+}
+
+const TEMPERATURE_BADGE_FORMATTER = (value) => `${Math.round(value)}°C`;
+const UV_BADGE_FORMATTER = (value) => formatFixedOneDecimal(value);
+const DEFAULT_BADGE_FORMATTER = (value) => Number.isFinite(value)
+  ? formatFixedOneDecimal(value)
+  : String(value);
+
 const valueBadgePlugin = {
   id: 'valueBadge',
   afterDatasetsDraw(chart) {
@@ -919,7 +929,7 @@ const valueBadgePlugin = {
     const BADGE_HEIGHT = 16;
     const BADGE_VERTICAL_OFFSET = 22;
     const BADGE_BORDER_RADIUS = 5;
-    const BADGE_TEXT_VERTICAL_ADJUSTMENT = 0.4;
+    const BADGE_TEXT_VERTICAL_OFFSET_PX = 0.4;
     const { ctx } = chart;
     if (!ctx) return;
     ctx.save();
@@ -953,7 +963,7 @@ const valueBadgePlugin = {
         ctx.fill();
 
         ctx.fillStyle = dataset.valueBadgeTextColor ?? '#0f172a';
-        ctx.fillText(text, element.x, y + height / 2 + BADGE_TEXT_VERTICAL_ADJUSTMENT);
+        ctx.fillText(text, element.x, y + height / 2 + BADGE_TEXT_VERTICAL_OFFSET_PX);
       });
     });
 
@@ -1057,12 +1067,6 @@ function getDailyUvMaxMarkers(aggregateSeries) {
   }
   return Array.from(perDay.values());
 }
-
-const TEMPERATURE_BADGE_FORMATTER = (value) => `${Math.round(value)}°C`;
-const UV_BADGE_FORMATTER = (value) => value.toFixed(1).replace(/\.0$/, '');
-const DEFAULT_BADGE_FORMATTER = (value) => Number.isFinite(value)
-  ? value.toFixed(1).replace(/\.0$/, '')
-  : String(value);
 
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
