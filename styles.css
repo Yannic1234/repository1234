@@ -778,10 +778,11 @@ body.theme-light #weatherBg.sunny {
 /* ─── Sidebar ────────────────────────────────────── */
 
 .sidebar {
+  --sidebar-sticky-offset: 1.5rem;
   padding: 1.4rem 1.3rem 1.5rem;
   position: sticky;
-  top: 1.5rem;
-  max-height: calc(100vh - 3rem);
+  top: var(--sidebar-sticky-offset);
+  max-height: calc(100vh - (var(--sidebar-sticky-offset) * 2));
   overflow-y: auto;
   overflow-x: visible;
   scrollbar-width: thin;
