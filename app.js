@@ -829,16 +829,19 @@ const nowLinePlugin = {
 
 const dayNightPlugin = {
   id: 'dayNight',
-  beforeDatasetsDraw(chart) {
+  afterDatasetsDraw(chart) {
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea || cachedSunEvents.length === 0) return;
-    const { top, bottom, left, right } = chartArea;
+    const { bottom, left, right } = chartArea;
     const xMin = xScale.min;
     const xMax = xScale.max;
     ctx.save();
 
-    // Draw night bands (before sunrise and after sunset for each day)
+    // Draw thin white lines at bottom of chart for each night period
+    const lineHeight = 3;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+
     for (const { sunrise, sunset } of cachedSunEvents) {
       const dayMidnight = new Date(sunrise);
       dayMidnight.setHours(0, 0, 0, 0);
@@ -850,8 +853,7 @@ const dayNightPlugin = {
       if (nightStartMs < nightEndMs) {
         const x1 = xScale.getPixelForValue(nightStartMs);
         const x2 = xScale.getPixelForValue(nightEndMs);
-        ctx.fillStyle = 'rgba(0,0,40,0.18)';
-        ctx.fillRect(x1, top, x2 - x1, bottom - top);
+        ctx.fillRect(x1, bottom - lineHeight, x2 - x1, lineHeight);
       }
 
       // After sunset band
@@ -860,8 +862,7 @@ const dayNightPlugin = {
       if (eveningStartMs < eveningEndMs) {
         const x1 = xScale.getPixelForValue(eveningStartMs);
         const x2 = xScale.getPixelForValue(eveningEndMs);
-        ctx.fillStyle = 'rgba(0,0,40,0.18)';
-        ctx.fillRect(x1, top, x2 - x1, bottom - top);
+        ctx.fillRect(x1, bottom - lineHeight, x2 - x1, lineHeight);
       }
     }
     ctx.restore();

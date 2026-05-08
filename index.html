@@ -60,7 +60,7 @@
 
         <p id="status" class="status">Bereit.</p>
 
-        <!-- ─── Stats grid (all square) ──────────────────── -->
+        <!-- ─── Stats grid (compact rows) ───────────────────── -->
         <div class="stats-grid">
 
           <div class="stat-card glass-inner">
@@ -70,13 +70,12 @@
                    fill="none" stroke="currentColor" stroke-width="2.2"
                    stroke-linecap="round" stroke-linejoin="round"
                    aria-hidden="true">
-                <!-- Arrow pointing up; rotated by JS: 0° = from north, +180° for "blowing toward" -->
                 <line x1="12" y1="20" x2="12" y2="4"/>
                 <polyline points="5 11 12 4 19 11"/>
               </svg>
               <span class="stat-value" id="windSpeed">–</span>
+              <span class="stat-sub" id="windDirText">–</span>
             </div>
-            <span class="stat-sub" id="windDirText">–</span>
           </div>
 
           <div class="stat-card glass-inner">
@@ -149,22 +148,34 @@
           <span class="aqi-desc" id="aqiDesc">–</span>
         </div>
 
+        <!-- ─── Attribution ───────────────────────────────── -->
+        <div class="sidebar-attribution">
+          <span>Daten:</span>
+          <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+          <a href="https://www.dwd.de/" target="_blank" rel="noopener">DWD</a> ·
+          <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky</a> ·
+          <a href="https://api.met.no/" target="_blank" rel="noopener">MET Norway</a> ·
+          <a href="https://www.7timer.info/" target="_blank" rel="noopener">7Timer!</a>
+        </div>
+
       </aside>
 
       <!-- ─── Charts ───────────────────────────────────────── -->
       <main class="charts-main">
-        <section class="chart-section glass">
-          <h2><span class="chart-icon">🌡️</span> Temperatur (°C)</h2>
-          <canvas id="tempChart"></canvas>
-        </section>
-        <section class="chart-section glass">
-          <h2><span class="chart-icon">🌧️</span> Niederschlag (mm/h)</h2>
-          <canvas id="rainChart"></canvas>
-        </section>
-        <section class="chart-section glass">
-          <h2><span class="chart-icon">☀️</span> UV-Index</h2>
-          <canvas id="uvChart"></canvas>
-        </section>
+        <div class="charts-wrapper glass">
+          <section class="chart-section">
+            <h2>Temperatur (°C)</h2>
+            <canvas id="tempChart"></canvas>
+          </section>
+          <section class="chart-section">
+            <h2>Niederschlag (mm/h)</h2>
+            <canvas id="rainChart"></canvas>
+          </section>
+          <section class="chart-section">
+            <h2>UV-Index</h2>
+            <canvas id="uvChart"></canvas>
+          </section>
+        </div>
       </main>
 
     </div>
@@ -172,9 +183,14 @@
     <!-- ─── Bottom search bar (centered) ─────────────────────── -->
     <div class="bottom-bar">
       <div class="location-search-wrap glass">
-        <span class="search-icon" aria-hidden="true">🔍</span>
         <input id="locationInput" type="search" placeholder="Ort eingeben …" value="Dresden" autocomplete="off" />
-        <button id="loadBtn" title="Vorhersage laden">↺</button>
+        <button id="loadBtn" title="Vorhersage laden" aria-label="Suchen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/>
+            <line x1="16.5" y1="16.5" x2="22" y2="22"/>
+          </svg>
+        </button>
       </div>
     </div>
 
