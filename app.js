@@ -863,6 +863,8 @@ async function loadAndRender() {
 
 // ─── Moon phase ───────────────────────────────────────────────────────────────
 
+const LUNAR_CYCLE_DAYS = 29.530588853; // mean synodic month in days
+
 const MOON_PHASE_NAMES = [
   'Neumond', 'Zunehmende Sichel', 'Erstes Viertel', 'Zunehmender Halbmond',
   'Vollmond', 'Abnehmender Halbmond', 'Letztes Viertel', 'Abnehmende Sichel'
@@ -871,15 +873,13 @@ const MOON_PHASE_NAMES = [
 function getMoonPhase(date) {
   // Known new moon reference (2000-01-06 18:14 UTC)
   const knownNewMoon = new Date('2000-01-06T18:14:00Z');
-  const lunarCycle   = 29.530588853; // days
   const daysSince    = (date - knownNewMoon) / 86_400_000;
-  const phase        = ((daysSince % lunarCycle) + lunarCycle) % lunarCycle;
+  const phase        = ((daysSince % LUNAR_CYCLE_DAYS) + LUNAR_CYCLE_DAYS) % LUNAR_CYCLE_DAYS;
   return phase; // 0 = new moon, ~14.77 = full moon, 29.53 = new moon again
 }
 
 function getMoonPhaseName(phase) {
-  const lunarCycle = 29.530588853;
-  const fraction   = phase / lunarCycle; // 0–1
+  const fraction = phase / LUNAR_CYCLE_DAYS; // 0–1
   const idx = Math.round(fraction * 8) % 8;
   return MOON_PHASE_NAMES[idx];
 }
@@ -901,7 +901,7 @@ function drawMoonCanvas(phase) {
   ctx.fillStyle = 'rgba(8, 8, 24, 0.75)';
   ctx.fill();
 
-  const lunarCycle  = 29.530588853;
+  const lunarCycle  = LUNAR_CYCLE_DAYS;
   const fraction    = phase / lunarCycle; // 0–1
   const illuminated = (1 - Math.cos(fraction * Math.PI * 2)) / 2; // 0–1
 
@@ -917,15 +917,15 @@ function drawMoonCanvas(phase) {
 
     ctx.beginPath();
     if (isWaxing) {
-      // Right half (terminator moves left → right)
+      // Right half lit; terminator arc sweeps from full disk toward new moon
       ctx.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2, false);
-      const tx = r * Math.cos(angle);
-      ctx.ellipse(cx + tx, cy, Math.abs(tx) || 0.1, r, 0, Math.PI / 2, -Math.PI / 2, true);
+      const tx = r * Math.cos(angle); // > 0 near new moon, < 0 near full
+      ctx.ellipse(cx + tx, cy, Math.abs(tx), r, 0, Math.PI / 2, -Math.PI / 2, true);
     } else {
-      // Left half (terminator moves right → left)
+      // Left half lit; terminator arc sweeps from full moon toward new moon
       ctx.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2, false);
-      const tx = r * Math.cos(angle);
-      ctx.ellipse(cx + tx, cy, Math.abs(tx) || 0.1, r, 0, -Math.PI / 2, Math.PI / 2, true);
+      const tx = r * Math.cos(angle); // < 0 near full moon, > 0 near new moon
+      ctx.ellipse(cx + tx, cy, Math.abs(tx), r, 0, -Math.PI / 2, Math.PI / 2, true);
     }
     ctx.fillStyle = 'rgba(255, 252, 210, 0.92)';
     ctx.fill();
@@ -941,10 +941,9 @@ function drawMoonCanvas(phase) {
 }
 
 function updateMoonPhase() {
-  const phase      = getMoonPhase(new Date());
-  const phaseName  = getMoonPhaseName(phase);
-  const lunarCycle = 29.530588853;
-  const fraction   = phase / lunarCycle;
+  const phase       = getMoonPhase(new Date());
+  const phaseName   = getMoonPhaseName(phase);
+  const fraction    = phase / LUNAR_CYCLE_DAYS;
   const illuminated = Math.round((1 - Math.cos(fraction * Math.PI * 2)) / 2 * 100);
 
   setSidebarValue('moonPhaseName',    phaseName);
@@ -977,7 +976,8 @@ async function fetchAndDisplayAQI(coords) {
     const aqi  = data?.current?.european_aqi;
     if (!Number.isFinite(aqi)) return;
 
-    // Clamp to 0–150 for marker placement
+    // Scale: European AQI 0–150 maps to 0–100% of the bar.
+    // Values above 150 are extremely poor; they clamp to the right edge.
     const pct    = Math.min(100, Math.max(0, (aqi / 150) * 100));
     const level  = AQI_LEVELS.find((l) => aqi <= l.max) ?? AQI_LEVELS.at(-1);
 

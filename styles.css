@@ -1102,14 +1102,11 @@ canvas {
   pointer-events: none;
 }
 
-body.theme-light .bottom-bar {
-  background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45));
-}
+/* Light theme bottom bar override */
+body.theme-light .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45)); }
 
 @media (prefers-color-scheme: light) {
-  .bottom-bar {
-    background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45));
-  }
+  .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45)); }
 }
 
 .location-search-wrap {
