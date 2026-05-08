@@ -13,68 +13,64 @@
   --radius:    18px;
   --radius-sm: 10px;
 
-  /* Dark mode defaults */
+  /* Text is ALWAYS white regardless of mode */
   --text:         rgba(255, 255, 255, 0.95);
-  --text2:        rgba(255, 255, 255, 0.62);
-  --text3:        rgba(255, 255, 255, 0.35);
+  --text2:        rgba(255, 255, 255, 0.65);
+  --text3:        rgba(255, 255, 255, 0.38);
+
+  /* Dark mode glass defaults */
   --glass-bg:     rgba(255, 255, 255, 0.10);
   --glass-inner:  rgba(255, 255, 255, 0.07);
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.48),
                   inset 0 1px 0 rgba(255, 255, 255, 0.16);
   --input-bg:     rgba(255, 255, 255, 0.10);
-  --input-border: rgba(255, 255, 255, 0.20);
+  --input-border: rgba(255, 255, 255, 0.22);
   --status-bg:    rgba(255, 255, 255, 0.05);
   --body-bg:      #000;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --text:         rgba(10, 10, 15, 0.88);
-    --text2:        rgba(10, 10, 15, 0.55);
-    --text3:        rgba(10, 10, 15, 0.38);
-    --glass-bg:     rgba(255, 255, 255, 0.52);
-    --glass-inner:  rgba(255, 255, 255, 0.42);
-    --glass-border: rgba(255, 255, 255, 0.72);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.85);
-    --input-bg:     rgba(255, 255, 255, 0.60);
-    --input-border: rgba(0, 0, 0, 0.14);
-    --status-bg:    rgba(255, 255, 255, 0.38);
-    --body-bg:      #d0dce8;
+    /* Text stays white – only glass brightness changes */
+    --glass-bg:     rgba(255, 255, 255, 0.20);
+    --glass-inner:  rgba(255, 255, 255, 0.15);
+    --glass-border: rgba(255, 255, 255, 0.35);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.28),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    --input-bg:     rgba(255, 255, 255, 0.20);
+    --input-border: rgba(255, 255, 255, 0.35);
+    --status-bg:    rgba(255, 255, 255, 0.10);
+    --body-bg:      #000;
   }
 }
 
 /* ─── Manual theme overrides (body class) ─────────── */
 
 body.theme-dark {
-  --text:         rgba(255, 255, 255, 0.95);
-  --text2:        rgba(255, 255, 255, 0.62);
-  --text3:        rgba(255, 255, 255, 0.35);
+  /* Text stays white */
   --glass-bg:     rgba(255, 255, 255, 0.10);
   --glass-inner:  rgba(255, 255, 255, 0.07);
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.48),
                   inset 0 1px 0 rgba(255, 255, 255, 0.16);
   --input-bg:     rgba(255, 255, 255, 0.10);
-  --input-border: rgba(255, 255, 255, 0.20);
+  --input-border: rgba(255, 255, 255, 0.22);
   --status-bg:    rgba(255, 255, 255, 0.05);
   --body-bg:      #000;
 }
 
 body.theme-light {
-  --text:         rgba(10, 10, 15, 0.88);
-  --text2:        rgba(10, 10, 15, 0.55);
-  --text3:        rgba(10, 10, 15, 0.38);
-  --glass-bg:     rgba(255, 255, 255, 0.52);
-  --glass-inner:  rgba(255, 255, 255, 0.42);
-  --glass-border: rgba(255, 255, 255, 0.72);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12),
-                  inset 0 1px 0 rgba(255, 255, 255, 0.85);
-  --input-bg:     rgba(255, 255, 255, 0.60);
-  --input-border: rgba(0, 0, 0, 0.14);
-  --status-bg:    rgba(255, 255, 255, 0.38);
-  --body-bg:      #d0dce8;
+  /* Text stays white – only glass brightness changes */
+  --glass-bg:     rgba(255, 255, 255, 0.20);
+  --glass-inner:  rgba(255, 255, 255, 0.15);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.28),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  --input-bg:     rgba(255, 255, 255, 0.20);
+  --input-border: rgba(255, 255, 255, 0.35);
+  --status-bg:    rgba(255, 255, 255, 0.10);
+  --body-bg:      #000;
 }
 
 *,
@@ -774,13 +770,12 @@ h1 {
   margin-top: 0.5rem;
 }
 
-/* ─── Feels like ─────────────────────────────────── */
-
 .feels-like-row {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.3rem;
+  flex-wrap: wrap;
 }
 
 .feels-label {
@@ -794,24 +789,55 @@ h1 {
   color: var(--text);
 }
 
-/* ─── Hours row ──────────────────────────────────── */
-
-.hours-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.84rem;
-  color: var(--text2);
-  margin-bottom: 0.6rem;
+.feels-sep {
+  font-size: 0.78rem;
+  color: var(--text3);
 }
 
-.hours-input-wrap {
+/* ─── Temp min/max range row ─────────────────────── */
+
+.temp-range-row {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  margin-bottom: 0.3rem;
+}
+
+.temp-range-item {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.temp-range-icon {
+  font-size: 0.72rem;
+  color: var(--text2);
+}
+
+.temp-range-sep {
+  font-size: 0.78rem;
+  color: var(--text3);
+}
+
+/* ─── Weather narrative ──────────────────────────── */
+
+.weather-narrative {
   font-size: 0.84rem;
   color: var(--text2);
+  line-height: 1.5;
+  margin-top: 0.5rem;
+  margin-bottom: 0.2rem;
+  font-style: italic;
+  min-height: 1.2em;
+}
+
+/* ─── Hours row (hidden but kept for JS compat) ─── */
+
+.hours-row {
+  display: none;
 }
 
 /* ─── Inputs & Button ────────────────────────────── */
@@ -1072,6 +1098,14 @@ h2 {
   letter-spacing: -0.01em;
   margin-bottom: 0.65rem;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chart-icon {
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 canvas {
@@ -1102,11 +1136,11 @@ canvas {
   pointer-events: none;
 }
 
-/* Light theme bottom bar override */
-body.theme-light .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45)); }
+/* Light theme bottom bar override – same dark gradient since body is always dark */
+body.theme-light .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.35)); }
 
 @media (prefers-color-scheme: light) {
-  .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(180,200,220,0.45)); }
+  .bottom-bar { background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.35)); }
 }
 
 .location-search-wrap {
