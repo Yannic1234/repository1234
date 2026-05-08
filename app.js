@@ -34,6 +34,8 @@ Chart.defaults.borderColor               = 'rgba(255,255,255,0.07)';
 Chart.defaults.font.family               = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif';
 Chart.defaults.font.size                 = 11;
 
+const MS_PER_HOUR = 3_600_000;
+
 // DWD station lookup table (Stationskennung / WMO block station numbers with coordinates)
 const DWD_STATIONS = [
   { id: '10384', lat: 52.47, lon: 13.40 }, // Berlin-Tempelhof
@@ -449,14 +451,14 @@ const WEATHER_META = {
 
 function weatherCodeToClass(code, isDay) {
   if (!isDay) return 'night';
-  if (code <= 1)                          return 'sunny';
-  if (code === 2 || code === 3)           return 'cloudy';
-  if (code === 45 || code === 48)         return 'fog';
-  if (code >= 51 && code <= 67)           return 'rainy';
-  if (code >= 71 && code <= 77)           return 'snow';
-  if (code >= 80 && code <= 82)           return 'rainy';
-  if (code === 85 || code === 86)         return 'snow';
-  if (code >= 95)                         return 'stormy';
+  if (code <= 1)                          return 'sunny';          // 0-1: Clear sky / mainly clear
+  if (code === 2 || code === 3)           return 'cloudy';         // 2-3: Partly/fully overcast
+  if (code === 45 || code === 48)         return 'fog';            // 45/48: Fog / rime fog
+  if (code >= 51 && code <= 67)           return 'rainy';          // 51-67: Drizzle / rain / freezing rain
+  if (code >= 71 && code <= 77)           return 'snow';           // 71-77: Snow fall / snow grains / ice
+  if (code >= 80 && code <= 82)           return 'rainy';          // 80-82: Rain showers
+  if (code === 85 || code === 86)         return 'snow';           // 85-86: Snow showers
+  if (code >= 95)                         return 'stormy';         // 95-99: Thunderstorm
   return 'cloudy';
 }
 
@@ -474,7 +476,10 @@ async function applyWeatherBackground(coords) {
     const isDay = Boolean(data?.current?.is_day ?? 1);
     const cls   = weatherCodeToClass(code, isDay);
     setWeatherUI(cls);
-  } catch { /* silent – background stays at default */ }
+  } catch (err) {
+    console.warn('[weather] background fetch failed:', err);
+    /* silent fallback – background stays at initialised default */
+  }
 }
 
 function setWeatherUI(cls) {
@@ -530,7 +535,7 @@ const midnightNoonPlugin = {
         ctx.fillText('0:00', px, top + 11);
       }
       // Noon  (12:00)
-      const noonMs = d.getTime() + 12 * 3_600_000;
+      const noonMs = d.getTime() + 12 * MS_PER_HOUR;
       if (noonMs >= xMin && noonMs <= xMax) {
         const px = xScale.getPixelForValue(noonMs);
         ctx.setLineDash([5, 6]);
@@ -556,7 +561,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
 
   const hours       = Math.min(72, Math.max(6, Number(hoursInput.value) || 24));
   const now         = Date.now();
-  const xRangeEnd   = now + hours * 3_600_000;
+  const xRangeEnd   = now + hours * MS_PER_HOUR;
 
   const sharedScales = {
     x: {
