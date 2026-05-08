@@ -14,6 +14,7 @@
     <div id="weatherBg">
       <div class="bg-layer bg-layer-2"></div>
       <div class="bg-layer bg-layer-3"></div>
+      <div class="bg-layer bg-layer-4"></div>
     </div>
 
     <!-- Theme toggle: auto / light / dark -->
@@ -149,6 +150,19 @@
           <span class="aqi-desc" id="aqiDesc">–</span>
         </div>
 
+        <!-- ─── Sources (secondary, at sidebar bottom) ────── -->
+        <details class="sidebar-sources glass-inner">
+          <summary>Quellen &amp; Modelle</summary>
+          <div class="sidebar-attribution">
+            <span>Daten:</span>
+            <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+            <a href="https://www.dwd.de/" target="_blank" rel="noopener">DWD</a> ·
+            <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky</a> ·
+            <a href="https://api.met.no/" target="_blank" rel="noopener">MET Norway</a> ·
+            <a href="https://www.7timer.info/" target="_blank" rel="noopener">7Timer!</a>
+          </div>
+        </details>
+
       </aside>
 
       <!-- ─── Charts ───────────────────────────────────────── -->
@@ -185,20 +199,8 @@
       </div>
     </div>
 
-    <!-- ─── Page-level attribution ──────────────────────── -->
-    <footer class="site-footer">
-      <details class="sources-panel glass">
-        <summary>Quellen & Modelle</summary>
-        <div class="page-attribution">
-          <span>Daten:</span>
-          <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
-          <a href="https://www.dwd.de/" target="_blank" rel="noopener">DWD</a> ·
-          <a href="https://brightsky.dev/" target="_blank" rel="noopener">BrightSky</a> ·
-          <a href="https://api.met.no/" target="_blank" rel="noopener">MET Norway</a> ·
-          <a href="https://www.7timer.info/" target="_blank" rel="noopener">7Timer!</a>
-        </div>
-      </details>
-    </footer>
+    <!-- ─── Page-level attribution (hidden – sources now in sidebar) ── -->
+    <footer class="site-footer" aria-hidden="true"></footer>
 
     <script type="module" src="app.js"></script>
   </body>
