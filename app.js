@@ -1445,8 +1445,8 @@ async function fetchAndDisplayAQI(coords) {
 
 // ─── Liquid glass reflection (mouse position / device gyroscope) ─────────────
 //
-  // Tracks the pointer (or device tilt on mobile) and updates --reflex-x /
-  // --reflex-y on every reflective card so the
+// Tracks the pointer (or device tilt on mobile) and updates --reflex-x /
+// --reflex-y on every reflective card so the
 // CSS ::before gradients render a plausible specular highlight at the correct
 // position relative to each card surface.
 
