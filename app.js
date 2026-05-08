@@ -63,7 +63,14 @@ const UV_INDEX_COLORS = [
   { min: 6, color: '#ff9f43' },
   { min: 3, color: '#ffd166' }
 ];
+const UV_NIGHT_COLOR = 'rgba(245,247,250,0.50)';
 const MIN_MOON_TERMINATOR_WIDTH = 0.8;
+const NIGHT_OVERLAY_ALPHA_BY_CHART = {
+  // Temperature receives the strongest night emphasis, UV moderate, rain subtle.
+  tempChart: 0.28,
+  uvChart: 0.24,
+  rainChart: 0.18
+};
 
 // Dash patterns for distinguishing overlapping series
 const DASH_PATTERNS = [
@@ -578,7 +585,7 @@ function updateSidebarStats(data, locationLabel) {
   const daily = data?.daily   ?? {};
 
   if (locationLabel) {
-    if (typeof locationLabel === 'object') {
+    if (locationLabel && typeof locationLabel === 'object' && !Array.isArray(locationLabel)) {
       const city = locationLabel.city ?? locationLabel.label ?? '';
       const metaParts = [locationLabel.region, locationLabel.country].filter(Boolean);
       setSidebarValue('locationName', city || '–');
@@ -643,7 +650,7 @@ function updateSidebarStats(data, locationLabel) {
   setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
   let uvColor = 'var(--text)';
   if (Number.isFinite(uv) && !isCurrentlyDay) {
-    uvColor = 'rgba(245,247,250,0.50)';
+    uvColor = UV_NIGHT_COLOR;
   } else if (Number.isFinite(uv)) {
     const matchedUvColor = UV_INDEX_COLORS.find((entry) => uv >= entry.min);
     uvColor = matchedUvColor ? matchedUvColor.color : 'var(--text)';
@@ -861,12 +868,7 @@ const dayNightPlugin = {
     const xMax = xScale.max;
     ctx.save();
 
-    const nightAlphaByChart = {
-      tempChart: 0.28,
-      uvChart: 0.24,
-      rainChart: 0.18
-    };
-    const nightAlpha = nightAlphaByChart[chart.canvas?.id] ?? 0.20;
+    const nightAlpha = NIGHT_OVERLAY_ALPHA_BY_CHART[chart.canvas?.id] ?? 0.20;
     ctx.fillStyle = `rgba(0, 0, 0, ${nightAlpha})`;
 
     for (const { sunrise, sunset } of cachedSunEvents) {
@@ -1292,10 +1294,14 @@ async function loadAndRender() {
     applyWeatherBackground(location);
 
     setStatus(`Vorhersage wird geladen … (${location.label})`);
-    const { available } = await loadAvailableSeries(hours, location);
+    const { available, unavailable } = await loadAvailableSeries(hours, location);
 
     if (available.length === 0) {
       throw new Error('Keine verfügbare Wetterquelle lieferte Daten.');
+    }
+
+    if (unavailable.length > 0) {
+      console.info(`[weather] Nicht verfügbare Quellen: ${unavailable.length}`);
     }
 
     renderOverlayChart('tempChart', 'Temperatur', available, 'temperature_2m');
@@ -1477,7 +1483,7 @@ async function fetchAndDisplayAQI(coords) {
       const pctY = r.height > 0 ? Math.max(0, Math.min(100, (localY / r.height) * 100)) : 28;
       const nx = (pctX - 50) / 50;
       const ny = (pctY - 50) / 50;
-      const angle = (nx * 12 - ny * 8).toFixed(2);
+      const angle = (nx * REFLEX_ANGLE_X_FACTOR - ny * REFLEX_ANGLE_Y_FACTOR).toFixed(2);
       el.style.setProperty('--reflex-x', `${localX.toFixed(1)}px`);
       el.style.setProperty('--reflex-y', `${localY.toFixed(1)}px`);
       el.style.setProperty('--reflex-x-pct', `${pctX.toFixed(2)}%`);
@@ -1490,6 +1496,9 @@ async function fetchAndDisplayAQI(coords) {
 
   // Lerp convergence threshold in pixels: below this the animation is stopped
   const REFLEX_THRESHOLD = 0.4;
+  // Horizontal input influences reflection angle slightly stronger than vertical.
+  const REFLEX_ANGLE_X_FACTOR = 12;
+  const REFLEX_ANGLE_Y_FACTOR = 8;
 
   function tick() {
     currentX = lerp(currentX, targetX, 0.10);
