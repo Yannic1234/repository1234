@@ -4,7 +4,15 @@ const hoursInput = document.getElementById('hoursInput');
 const locationInput = document.getElementById('locationInput');
 const DEFAULT_COORDS = { latitude: 52.52, longitude: 13.405 };
 const DEFAULT_LOCATION_QUERY = 'Berlin';
-const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7'];
+const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7', '#f97316', '#06b6d4', '#84cc16'];
+
+// Metric-specific gradient colors (RGB string) used for the chart background gradient
+// white (bottom/low value) → color (top/high value)
+const METRIC_GRADIENT_RGB = {
+  temperature_2m: '239,68,68',   // red
+  precipitation: '59,130,246',   // blue
+  uv_index: '249,115,22'         // orange
+};
 
 // DWD station lookup table (Stationskennung / WMO block station numbers with coordinates)
 const DWD_STATIONS = [
@@ -34,13 +42,43 @@ const PROVIDERS = [
   },
   {
     id: 'open-meteo',
-    label: 'Open-Meteo',
+    label: 'Open-Meteo (ICON)',
     fetchSeries: fetchOpenMeteoSeries
   },
   {
+    id: 'open-meteo-ecmwf',
+    label: 'ECMWF IFS (Open-Meteo)',
+    fetchSeries: (hours, coords) => fetchOpenMeteoSeries(hours, coords, 'ecmwf_ifs025')
+  },
+  {
+    id: 'open-meteo-gfs',
+    label: 'GFS/NOAA (Open-Meteo)',
+    fetchSeries: (hours, coords) => fetchOpenMeteoSeries(hours, coords, 'gfs_seamless')
+  },
+  {
     id: 'dwd',
-    label: 'DWD (Deutscher Wetterdienst)',
+    label: 'DWD (Proxy)',
     fetchSeries: fetchDwdSeries
+  },
+  {
+    id: 'brightsky',
+    label: 'BrightSky (DWD)',
+    fetchSeries: fetchBrightSkySeries
+  },
+  {
+    id: 'dwd-opendata',
+    label: 'DWD Opendata (MOSMIX)',
+    fetchSeries: fetchDwdOpenDataSeries
+  },
+  {
+    id: 'metno',
+    label: 'MET Norway (Yr)',
+    fetchSeries: fetchMetNorwaySeries
+  },
+  {
+    id: '7timer',
+    label: '7Timer!',
+    fetchSeries: fetch7TimerSeries
   },
   {
     id: 'kachelmann',
@@ -124,7 +162,7 @@ async function fetchDwdSeries(hours, coords) {
   }).filter(hasAnyValidMetric);
 }
 
-async function fetchOpenMeteoSeries(hours, coords) {
+async function fetchOpenMeteoSeries(hours, coords, model = null) {
   const params = new URLSearchParams({
     latitude: String(coords.latitude),
     longitude: String(coords.longitude),
@@ -132,6 +170,7 @@ async function fetchOpenMeteoSeries(hours, coords) {
     forecast_hours: String(hours),
     timezone: 'auto'
   });
+  if (model) params.set('models', model);
   const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -149,6 +188,154 @@ async function fetchOpenMeteoSeries(hours, coords) {
     precipitation: Number.isFinite(precipitation[idx]) ? precipitation[idx] : null,
     uv_index: Number.isFinite(uvIndex[idx]) ? uvIndex[idx] : null
   })).filter(hasAnyValidMetric);
+}
+
+async function fetchMetNorwaySeries(hours, coords) {
+  const url =
+    `https://api.met.no/weatherapi/locationforecast/2.0/compact` +
+    `?lat=${coords.latitude}&lon=${coords.longitude}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`MET Norway HTTP ${res.status}`);
+  const data = await res.json();
+
+  const timeseries = data?.properties?.timeseries ?? [];
+  const now = Date.now();
+  const result = [];
+  for (const entry of timeseries) {
+    const x = new Date(entry.time);
+    if (x.getTime() < now - 3_600_000) continue;
+    if (result.length >= hours) break;
+    const instant = entry?.data?.instant?.details ?? {};
+    const next1h = entry?.data?.next_1_hours?.details ?? {};
+    const temperature_2m = Number.isFinite(instant.air_temperature) ? instant.air_temperature : null;
+    const precipitation = Number.isFinite(next1h.precipitation_amount) ? next1h.precipitation_amount : null;
+    if (temperature_2m !== null || precipitation !== null) {
+      result.push({ x, temperature_2m, precipitation, uv_index: null });
+    }
+  }
+  return result.filter(hasAnyValidMetric);
+}
+
+// Mapping von 7Timer! prec_amount (Ordinalskala 1–9) auf Midpoint-mm-Werte
+const SEVEN_TIMER_PRECIP_MM = [0, 0, 0.5, 1.5, 3, 6, 12, 23, 40, 60];
+
+async function fetch7TimerSeries(hours, coords) {
+  const url =
+    `https://www.7timer.info/bin/api.pl` +
+    `?lon=${coords.longitude}&lat=${coords.latitude}&product=civil&output=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`7Timer! HTTP ${res.status}`);
+  const data = await res.json();
+
+  // init: "YYYYMMDDHH" UTC
+  const initStr = String(data.init);
+  const initDate = new Date(
+    `${initStr.slice(0, 4)}-${initStr.slice(4, 6)}-${initStr.slice(6, 8)}T${initStr.slice(8, 10)}:00:00Z`
+  );
+
+  return (data.dataseries ?? [])
+    .slice(0, hours)
+    .map((entry) => ({
+      x: new Date(initDate.getTime() + entry.timepoint * 3_600_000),
+      temperature_2m: Number.isFinite(entry.temp2m) ? entry.temp2m : null,
+      precipitation: SEVEN_TIMER_PRECIP_MM[entry.prec_amount] ?? null,
+      uv_index: null
+    }))
+    .filter(hasAnyValidMetric);
+}
+
+async function fetchBrightSkySeries(hours, coords) {
+  const now = new Date();
+  const lastDate = new Date(now.getTime() + hours * 3_600_000);
+  const params = new URLSearchParams({
+    lat: String(coords.latitude),
+    lon: String(coords.longitude),
+    date: now.toISOString(),
+    last_date: lastDate.toISOString()
+  });
+  const url = `https://api.brightsky.dev/weather?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`BrightSky HTTP ${res.status}`);
+  const data = await res.json();
+
+  const weather = data?.weather ?? [];
+  return weather
+    .slice(0, hours)
+    .map((w) => ({
+      x: new Date(w.timestamp),
+      temperature_2m: Number.isFinite(w.temperature) ? w.temperature : null,
+      precipitation: Number.isFinite(w.precipitation) ? w.precipitation : null,
+      uv_index: null // BrightSky liefert keinen UV-Index
+    }))
+    .filter(hasAnyValidMetric);
+}
+
+// Namespace-URI der DWD MOSMIX KML-Erweiterung
+const DWD_NS = 'https://opendata.dwd.de/weather/lib/pointforecast_dwd_extension_V1_0.xsd';
+
+async function fetchDwdOpenDataSeries(hours, coords) {
+  if (typeof JSZip === 'undefined') throw new Error('JSZip nicht geladen');
+
+  const station = findNearestDwdStation(coords.latitude, coords.longitude);
+  const kmzUrl =
+    `https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/single_stations/` +
+    `${station.id}/kml/MOSMIX_L_LATEST_${station.id}.kmz`;
+
+  const res = await fetch(kmzUrl);
+  if (!res.ok) throw new Error(`DWD opendata HTTP ${res.status}`);
+  const buffer = await res.arrayBuffer();
+
+  const zip = await JSZip.loadAsync(buffer);
+  const kmlFileName = Object.keys(zip.files).find((n) => n.endsWith('.kml'));
+  if (!kmlFileName) throw new Error('DWD opendata: keine KML-Datei im KMZ-Archiv');
+  const kmlText = await zip.files[kmlFileName].async('string');
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(kmlText, 'application/xml');
+
+  // Zeitschritte auslesen
+  const timeStepEls = doc.getElementsByTagNameNS(DWD_NS, 'TimeStep');
+  const timeSteps = Array.from(timeStepEls).map((el) => new Date(el.textContent.trim()));
+  if (timeSteps.length === 0) throw new Error('DWD opendata: keine Zeitschritte gefunden');
+
+  // Helfer: Forecast-Element nach elementName suchen
+  function findForecast(name) {
+    const forecasts = doc.getElementsByTagName('Forecast');
+    for (const el of forecasts) {
+      const n =
+        el.getAttribute('dwd:elementName') ??
+        el.getAttributeNS(DWD_NS, 'elementName');
+      if (n === name) return el;
+    }
+    return null;
+  }
+
+  // Helfer: dwd:value-Werte als Float-Array parsen ('-' = null)
+  function parseDwdValues(forecastEl) {
+    if (!forecastEl) return [];
+    const valueEl = forecastEl.getElementsByTagNameNS(DWD_NS, 'value')[0];
+    if (!valueEl) return [];
+    return valueEl.textContent
+      .trim()
+      .split(/\s+/)
+      .map((v) => (v === '-' || v === '' ? null : parseFloat(v)));
+  }
+
+  const tttVals = parseDwdValues(findForecast('TTT'));   // Temperatur in K
+  const rr1cVals = parseDwdValues(findForecast('RR1c')); // Niederschlag in mm
+
+  const now = Date.now();
+  return timeSteps
+    .slice(0, Math.min(timeSteps.length, hours + 24)) // Puffer für Filterung
+    .map((ts, i) => ({
+      x: ts,
+      temperature_2m: tttVals[i] != null ? tttVals[i] - 273.15 : null,
+      precipitation: rr1cVals[i] != null && rr1cVals[i] >= 0 ? rr1cVals[i] : null,
+      uv_index: null
+    }))
+    .filter((p) => p.x.getTime() >= now - 3_600_000)
+    .slice(0, hours)
+    .filter(hasAnyValidMetric);
 }
 
 async function geocodeLocation(query) {
@@ -227,6 +414,24 @@ function hasAnyValidMetric(point) {
   return Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index);
 }
 
+function makeGradientBackgroundPlugin(rgb) {
+  return {
+    id: 'gradientBg',
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea } = chart;
+      if (!chartArea) return;
+      const { left, top, right, bottom } = chartArea;
+      const gradient = ctx.createLinearGradient(0, bottom, 0, top);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.06)');
+      gradient.addColorStop(1, `rgba(${rgb},0.32)`);
+      ctx.save();
+      ctx.fillStyle = gradient;
+      ctx.fillRect(left, top, right - left, bottom - top);
+      ctx.restore();
+    }
+  };
+}
+
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
 
@@ -248,7 +453,26 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     .filter(Boolean);
 
   if (datasets.length === 0) {
-    throw new Error(`Keine Datenreihen für ${metricLabel} verfügbar.`);
+    // Keine Quelldaten für diese Metrik – leeres Diagramm mit Hinweistext
+    charts[canvasId] = new Chart(ctx, {
+      type: 'line',
+      data: { datasets: [] },
+      options: { responsive: true, plugins: { legend: { display: false } } },
+      plugins: [{
+        id: 'noDataLabel',
+        afterDraw(chart) {
+          const { ctx: c, width, height } = chart;
+          c.save();
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillStyle = 'rgba(255,255,255,0.45)';
+          c.font = '14px sans-serif';
+          c.fillText(`${metricLabel}: keine Daten von den geladenen Quellen`, width / 2, height / 2);
+          c.restore();
+        }
+      }]
+    });
+    return;
   }
 
   // Determine the full time range across all datasets so the x-axis shows all loaded data
@@ -281,7 +505,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
           time: { unit: 'hour', tooltipFormat: 'dd.MM.yyyy HH:mm' }
         }
       }
-    }
+    },
+    plugins: [makeGradientBackgroundPlugin(METRIC_GRADIENT_RGB[metricKey] ?? '100,100,100')]
   });
 }
 
