@@ -6,6 +6,14 @@ const DEFAULT_COORDS = { latitude: 52.52, longitude: 13.405 };
 const DEFAULT_LOCATION_QUERY = 'Berlin';
 const LINE_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#10b981', '#a855f7'];
 
+// Metric-specific gradient colors (RGB string) used for the chart background gradient
+// white (bottom/low value) → color (top/high value)
+const METRIC_GRADIENT_RGB = {
+  temperature_2m: '239,68,68',   // red
+  precipitation: '59,130,246',   // blue
+  uv_index: '249,115,22'         // orange
+};
+
 // DWD station lookup table (Stationskennung / WMO block station numbers with coordinates)
 const DWD_STATIONS = [
   { id: '10384', lat: 52.47, lon: 13.40 }, // Berlin-Tempelhof
@@ -39,8 +47,18 @@ const PROVIDERS = [
   },
   {
     id: 'dwd',
-    label: 'DWD (Deutscher Wetterdienst)',
+    label: 'DWD (Proxy)',
     fetchSeries: fetchDwdSeries
+  },
+  {
+    id: 'brightsky',
+    label: 'BrightSky (DWD)',
+    fetchSeries: fetchBrightSkySeries
+  },
+  {
+    id: 'dwd-opendata',
+    label: 'DWD Opendata (MOSMIX)',
+    fetchSeries: fetchDwdOpenDataSeries
   },
   {
     id: 'kachelmann',
@@ -151,6 +169,100 @@ async function fetchOpenMeteoSeries(hours, coords) {
   })).filter(hasAnyValidMetric);
 }
 
+async function fetchBrightSkySeries(hours, coords) {
+  const now = new Date();
+  const lastDate = new Date(now.getTime() + hours * 3_600_000);
+  const params = new URLSearchParams({
+    lat: String(coords.latitude),
+    lon: String(coords.longitude),
+    date: now.toISOString(),
+    last_date: lastDate.toISOString()
+  });
+  const url = `https://api.brightsky.dev/weather?${params.toString()}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`BrightSky HTTP ${res.status}`);
+  const data = await res.json();
+
+  const weather = data?.weather ?? [];
+  return weather
+    .slice(0, hours)
+    .map((w) => ({
+      x: new Date(w.timestamp),
+      temperature_2m: Number.isFinite(w.temperature) ? w.temperature : null,
+      precipitation: Number.isFinite(w.precipitation) ? w.precipitation : null,
+      uv_index: null // BrightSky liefert keinen UV-Index
+    }))
+    .filter(hasAnyValidMetric);
+}
+
+// Namespace-URI der DWD MOSMIX KML-Erweiterung
+const DWD_NS = 'https://opendata.dwd.de/weather/lib/pointforecast_dwd_extension_V1_0.xsd';
+
+async function fetchDwdOpenDataSeries(hours, coords) {
+  if (typeof JSZip === 'undefined') throw new Error('JSZip nicht geladen');
+
+  const station = findNearestDwdStation(coords.latitude, coords.longitude);
+  const kmzUrl =
+    `https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX_L/single_stations/` +
+    `${station.id}/kml/MOSMIX_L_LATEST_${station.id}.kmz`;
+
+  const res = await fetch(kmzUrl);
+  if (!res.ok) throw new Error(`DWD opendata HTTP ${res.status}`);
+  const buffer = await res.arrayBuffer();
+
+  const zip = await JSZip.loadAsync(buffer);
+  const kmlFileName = Object.keys(zip.files).find((n) => n.endsWith('.kml'));
+  if (!kmlFileName) throw new Error('DWD opendata: keine KML-Datei im KMZ-Archiv');
+  const kmlText = await zip.files[kmlFileName].async('string');
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(kmlText, 'application/xml');
+
+  // Zeitschritte auslesen
+  const timeStepEls = doc.getElementsByTagNameNS(DWD_NS, 'TimeStep');
+  const timeSteps = Array.from(timeStepEls).map((el) => new Date(el.textContent.trim()));
+  if (timeSteps.length === 0) throw new Error('DWD opendata: keine Zeitschritte gefunden');
+
+  // Helfer: Forecast-Element nach elementName suchen
+  function findForecast(name) {
+    const forecasts = doc.getElementsByTagName('Forecast');
+    for (const el of forecasts) {
+      const n =
+        el.getAttribute('dwd:elementName') ??
+        el.getAttributeNS(DWD_NS, 'elementName');
+      if (n === name) return el;
+    }
+    return null;
+  }
+
+  // Helfer: dwd:value-Werte als Float-Array parsen ('-' = null)
+  function parseDwdValues(forecastEl) {
+    if (!forecastEl) return [];
+    const valueEl = forecastEl.getElementsByTagNameNS(DWD_NS, 'value')[0];
+    if (!valueEl) return [];
+    return valueEl.textContent
+      .trim()
+      .split(/\s+/)
+      .map((v) => (v === '-' || v === '' ? null : parseFloat(v)));
+  }
+
+  const tttVals = parseDwdValues(findForecast('TTT'));   // Temperatur in K
+  const rr1cVals = parseDwdValues(findForecast('RR1c')); // Niederschlag in mm
+
+  const now = Date.now();
+  return timeSteps
+    .slice(0, Math.min(timeSteps.length, hours + 24)) // Puffer für Filterung
+    .map((ts, i) => ({
+      x: ts,
+      temperature_2m: tttVals[i] != null ? tttVals[i] - 273.15 : null,
+      precipitation: rr1cVals[i] != null && rr1cVals[i] >= 0 ? rr1cVals[i] : null,
+      uv_index: null
+    }))
+    .filter((p) => p.x.getTime() >= now - 3_600_000)
+    .slice(0, hours)
+    .filter(hasAnyValidMetric);
+}
+
 async function geocodeLocation(query) {
   const params = new URLSearchParams({
     name: query,
@@ -227,6 +339,24 @@ function hasAnyValidMetric(point) {
   return Number.isFinite(point.temperature_2m) || Number.isFinite(point.precipitation) || Number.isFinite(point.uv_index);
 }
 
+function makeGradientBackgroundPlugin(rgb) {
+  return {
+    id: 'gradientBg',
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea } = chart;
+      if (!chartArea) return;
+      const { left, top, right, bottom } = chartArea;
+      const gradient = ctx.createLinearGradient(0, bottom, 0, top);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.06)');
+      gradient.addColorStop(1, `rgba(${rgb},0.32)`);
+      ctx.save();
+      ctx.fillStyle = gradient;
+      ctx.fillRect(left, top, right - left, bottom - top);
+      ctx.restore();
+    }
+  };
+}
+
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
 
@@ -281,7 +411,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
           time: { unit: 'hour', tooltipFormat: 'dd.MM.yyyy HH:mm' }
         }
       }
-    }
+    },
+    plugins: [makeGradientBackgroundPlugin(METRIC_GRADIENT_RGB[metricKey] ?? '100,100,100')]
   });
 }
 
