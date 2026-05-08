@@ -680,7 +680,7 @@ body.theme-light #weatherBg.sunny {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: 1.5rem;
   padding: 1.5rem;
   min-height: 100vh;
@@ -689,7 +689,6 @@ body.theme-light #weatherBg.sunny {
 
 @media (max-width: 900px) {
   .app-layout {
-    grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
     gap: 1rem;
     padding: 1rem;
   }
@@ -782,8 +781,9 @@ body.theme-light #weatherBg.sunny {
   padding: 1.4rem 1.3rem 1.5rem;
   position: sticky;
   top: 1.5rem;
-  max-height: none;
-  overflow: visible;
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+  overflow-x: visible;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.18) transparent;
   display: flex;
@@ -794,6 +794,7 @@ body.theme-light #weatherBg.sunny {
   .sidebar {
     position: static;
     max-height: none;
+    overflow: visible;
   }
 }
 
