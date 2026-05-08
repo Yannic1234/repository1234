@@ -689,6 +689,7 @@ body.theme-light #weatherBg.sunny {
 
 @media (max-width: 900px) {
   .app-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
     gap: 1rem;
     padding: 1rem;
   }
