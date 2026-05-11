@@ -1123,6 +1123,15 @@ function getDailyMaxMarkers(aggregateSeries) {
   return Array.from(perDay.values());
 }
 
+function getTemperatureAxisStep(range) {
+  const positiveRange = Math.max(1, Math.round(range));
+  const candidates = [1, 2, 3, 4, 5, 10, 15, 20];
+  for (const step of candidates) {
+    if (Math.floor(positiveRange / step) + 1 <= 6) return step;
+  }
+  return Math.max(1, Math.ceil(positiveRange / 5));
+}
+
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
 
@@ -1362,20 +1371,14 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
               const rawMin = Math.floor(scale.min);
               const rawMax = Math.ceil(scale.max);
               const range = Math.max(1, rawMax - rawMin);
-              let step = 1;
-              while (Math.floor(range / step) + 1 > 6) {
-                step += 1;
-              }
+              const step = getTemperatureAxisStep(range);
               scale.min = Math.floor(rawMin / step) * step;
               scale.max = Math.ceil(rawMax / step) * step;
             },
             afterBuildTicks: (scale) => {
               const range = Math.round(scale.max - scale.min);
               if (range <= 0) return;
-              let step = 1;
-              while (Math.floor(range / step) + 1 > 6) {
-                step += 1;
-              }
+              const step = getTemperatureAxisStep(range);
               const ticks = [];
               const minV = Math.round(scale.min);
               const maxV = Math.round(scale.max);
