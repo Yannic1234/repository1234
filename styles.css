@@ -19,7 +19,6 @@
   --weather-accent: #ffd166;
   --weather-accent-strong: #ffb703;
   --weather-accent-soft: rgba(255, 209, 102, 0.22);
-  --aqi-accent: #4ade80;
 
   /* Dark mode glass defaults */
   --glass-bg:     rgba(255, 255, 255, 0.10);
@@ -1204,10 +1203,6 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   box-shadow: 0 0 18px rgba(255, 241, 191, 0.08);
 }
 
-#aqiRingCanvas {
-  box-shadow: none;
-}
-
 .moon-name {
   font-size: 0.75rem;
   font-weight: 500;
@@ -1219,15 +1214,22 @@ button:active { transform: scale(0.97); box-shadow: 0 1px 4px rgba(0,122,255,0.2
   color: var(--text3);
 }
 
-.aqi-value {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--aqi-accent);
+.wind-card {
+  align-items: stretch;
 }
 
-.aqi-desc {
-  font-size: 0.72rem;
-  color: var(--aqi-accent);
+.wind-card .stat-label,
+.wind-card .stat-value,
+.wind-card .stat-sub {
+  text-align: center;
+}
+
+.wind-card .stat-wind-row {
+  justify-content: center;
+}
+
+.wind-card .stat-gust {
+  min-width: 0;
 }
 
 /* ─── Charts main ────────────────────────────────── */
@@ -1279,9 +1281,8 @@ canvas {
   max-height: clamp(160px, 22vh, 260px);
 }
 
-/* Moon canvas and AQI ring canvas must not be stretched by the global canvas rule */
-#moonCanvas,
-#aqiRingCanvas {
+/* Moon canvas must not be stretched by the global canvas rule */
+#moonCanvas {
   width: 56px !important;
   height: 56px !important;
   max-height: unset;
