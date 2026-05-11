@@ -898,7 +898,7 @@ body.theme-light #weatherBg.sunny {
 
 h1 {
   font-size: clamp(1.95rem, 4vw, 2.95rem);
-  font-weight: 760;
+  font-weight: 360;
   letter-spacing: -0.035em;
   line-height: 1.15;
   color: var(--text);
@@ -1023,8 +1023,36 @@ h1 {
   line-height: 1.5;
   margin-top: 0.75rem;
   margin-bottom: 0.15rem;
-  min-height: 2.4em;
-  max-width: 30ch;
+  min-height: 0;
+  max-width: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-links {
+  margin-top: 0.7rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text3);
+}
+
+.source-links p {
+  margin: 0.16rem 0;
+}
+
+.source-links strong {
+  color: var(--text2);
+  font-weight: 600;
+}
+
+.source-links a {
+  color: var(--weather-accent);
+  text-decoration: none;
+}
+
+.source-links a:hover {
+  text-decoration: underline;
 }
 
 /* ─── Hours row (hidden but kept for JS compat) ─── */

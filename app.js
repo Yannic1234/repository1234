@@ -832,34 +832,29 @@ function setWeatherUI(cls) {
   updateMoonPhase();
 })();
 
-// ─── "Jetzt" (now) vertical line plugin ──────────────────────────────────────
+// ─── "Jetzt" marker plugin ────────────────────────────────────────────────────
 
 const nowLinePlugin = {
   id: 'nowLine',
   afterDatasetsDraw(chart) {
     // Draw after datasets so the "Jetzt"-indicator stays visible across all charts.
-    const JETZT_BAR_HALF_WIDTH = 3;
-    const JETZT_LABEL_OFFSET = 9;
+    const PLUS_Y_OFFSET = 12;
+    const LABEL_Y_OFFSET = 25;
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea) return;
     const now = Date.now();
     if (now < xScale.min || now > xScale.max) return;
     const px = xScale.getPixelForValue(now);
-    const { top, bottom, left, right } = chartArea;
-    const barStart = Math.max(left, px - JETZT_BAR_HALF_WIDTH);
-    const barEnd = Math.min(right, px + JETZT_BAR_HALF_WIDTH);
+    const { top } = chartArea;
     ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.fillRect(barStart, top, Math.max(1, barEnd - barStart), bottom - top);
-    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.90)';
-    ctx.font = `bold 10px ${Chart.defaults.font.family}`;
+    ctx.font = `700 16px ${Chart.defaults.font.family}`;
     ctx.textAlign = 'center';
-    ctx.fillText('Jetzt', px, top + JETZT_LABEL_OFFSET);
+    ctx.textBaseline = 'middle';
+    ctx.fillText('+', px, top + PLUS_Y_OFFSET);
+    ctx.font = `bold 10px ${Chart.defaults.font.family}`;
+    ctx.fillText('Jetzt', px, top + LABEL_Y_OFFSET);
     ctx.restore();
   }
 };
@@ -1128,6 +1123,15 @@ function getDailyMaxMarkers(aggregateSeries) {
   return Array.from(perDay.values());
 }
 
+function getTemperatureAxisStep(range) {
+  const positiveRange = Math.max(1, Math.round(range));
+  const candidates = [1, 2, 3, 4, 5, 10, 15, 20];
+  for (const step of candidates) {
+    if (Math.floor(positiveRange / step) + 1 <= 6) return step;
+  }
+  return Math.max(1, Math.ceil(positiveRange / 5));
+}
+
 function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) {
   const ctx = document.getElementById(canvasId);
 
@@ -1356,7 +1360,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         font: { size: 11 },
         padding: 8,
         ...(metricKey === 'temperature_2m' ? { precision: 0 } : {}),
-        ...(metricKey === 'precipitation' ? { stepSize: PRECIPITATION_AXIS_STEP_MM_PER_HOUR } : {})
+        ...(metricKey === 'precipitation' ? { stepSize: PRECIPITATION_AXIS_STEP_MM_PER_HOUR } : {}),
+        ...(metricKey === 'uv_index' ? { stepSize: 2, precision: 0 } : {})
       },
       border: { dash: [4, 4] },
       ...(metricKey === 'temperature_2m'
@@ -1365,25 +1370,15 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
               scale.min = Math.min(scale.min, 0);
               const rawMin = Math.floor(scale.min);
               const rawMax = Math.ceil(scale.max);
-              let step = 4;
-              for (const s of [1, 2, 3, 4]) {
-                const sMin = Math.floor(rawMin / s) * s;
-                const sMax = Math.ceil(rawMax / s) * s;
-                const count = Math.round((sMax - sMin) / s);
-                if (count >= 6 && count <= 8) { step = s; break; }
-              }
+              const range = Math.max(1, rawMax - rawMin);
+              const step = getTemperatureAxisStep(range);
               scale.min = Math.floor(rawMin / step) * step;
               scale.max = Math.ceil(rawMax / step) * step;
-              while (Math.round((scale.max - scale.min) / step) < 6) scale.max += step;
             },
             afterBuildTicks: (scale) => {
               const range = Math.round(scale.max - scale.min);
               if (range <= 0) return;
-              let step = 4;
-              for (const s of [1, 2, 3, 4]) {
-                const count = Math.round(range / s);
-                if (count >= 6 && count <= 8) { step = s; break; }
-              }
+              const step = getTemperatureAxisStep(range);
               const ticks = [];
               const minV = Math.round(scale.min);
               const maxV = Math.round(scale.max);
