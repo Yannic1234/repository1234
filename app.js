@@ -57,9 +57,6 @@ const WEATHER_ACCENTS = {
   night:           { accent: '#a9c7ff', strong: '#3659d9', soft: 'rgba(63, 99, 220, 0.22)' }
 };
 
-const PRECIPITATION_VALUE_COLOR = 'rgba(125, 198, 255, 0.96)';
-const PRECIPITATION_AXIS_MAX_MM_PER_HOUR = 1;
-const PRECIPITATION_AXIS_STEP_MM_PER_HOUR = 0.2;
 const UV_INDEX_COLORS = [
   { min: 8, color: '#ff6b57' },
   { min: 6, color: '#ff9f43' },
@@ -583,6 +580,29 @@ function setInlineColor(id, color) {
   if (el) el.style.color = color ?? '';
 }
 
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function parseIsoToMinutes(isoStr) {
+  if (!isoStr) return null;
+  const date = new Date(isoStr);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function updateStatScale(cardId, ratio) {
+  const cardEl = document.getElementById(cardId);
+  if (!cardEl) return;
+  if (!Number.isFinite(ratio)) {
+    cardEl.style.setProperty('--scale-pos', '50%');
+    cardEl.dataset.hasValue = 'false';
+    return;
+  }
+  cardEl.style.setProperty('--scale-pos', `${(clamp01(ratio) * 100).toFixed(2)}%`);
+  cardEl.dataset.hasValue = 'true';
+}
+
 function updateSidebarStats(data, locationLabel) {
   const cur   = data?.current ?? {};
   const daily = data?.daily   ?? {};
@@ -624,33 +644,39 @@ function updateSidebarStats(data, locationLabel) {
   // Humidity
   const hum = cur.relative_humidity_2m;
   setSidebarValue('humidity', Number.isFinite(hum) ? `${Math.round(hum)} %` : '–');
+  updateStatScale('humidityCard', Number.isFinite(hum) ? hum / 100 : null);
 
   // Pressure
   const pres = cur.surface_pressure;
   setSidebarValue('pressure', Number.isFinite(pres) ? `${Math.round(pres)} hPa` : '–');
+  updateStatScale('pressureCard', Number.isFinite(pres) ? (pres - 970) / (1050 - 970) : null);
 
   // Visibility (m → km)
   const vis = cur.visibility;
   if (Number.isFinite(vis)) {
     const km = vis / 1000;
     setSidebarValue('visibility', km >= 10 ? `${Math.round(km)} km` : `${km.toFixed(1)} km`);
+    updateStatScale('visibilityCard', km / 100);
   } else {
     setSidebarValue('visibility', '–');
+    updateStatScale('visibilityCard', null);
   }
 
-  // Precipitation
-  const precip = cur.precipitation;
-  setSidebarValue('currentPrecip', Number.isFinite(precip) ? `${precip.toFixed(1)} mm/h` : '–');
-  setInlineColor('currentPrecip', Number.isFinite(precip) && precip > 0 ? PRECIPITATION_VALUE_COLOR : 'var(--text)');
-
   // Sunrise / sunset
-  setSidebarValue('sunrise', formatLocalTime(daily.sunrise?.[0]));
-  setSidebarValue('sunset',  formatLocalTime(daily.sunset?.[0]));
+  const sunriseIso = daily.sunrise?.[0];
+  const sunsetIso = daily.sunset?.[0];
+  setSidebarValue('sunrise', formatLocalTime(sunriseIso));
+  setSidebarValue('sunset',  formatLocalTime(sunsetIso));
+  const sunriseMinutes = parseIsoToMinutes(sunriseIso);
+  const sunsetMinutes = parseIsoToMinutes(sunsetIso);
+  updateStatScale('sunriseCard', Number.isFinite(sunriseMinutes) ? (sunriseMinutes - (5 * 60)) / (4 * 60) : null);
+  updateStatScale('sunsetCard', Number.isFinite(sunsetMinutes) ? (sunsetMinutes - (16 * 60)) / (6 * 60) : null);
 
   // UV index
   const uv = cur.uv_index;
   const isCurrentlyDay = Boolean(cur.is_day ?? 1);
   setSidebarValue('currentUV', Number.isFinite(uv) ? uv.toFixed(1) : '–');
+  updateStatScale('uvCard', Number.isFinite(uv) ? uv / 8 : null);
   let uvColor = 'var(--text)';
   if (Number.isFinite(uv) && !isCurrentlyDay) {
     uvColor = UV_NIGHT_COLOR;
@@ -832,29 +858,26 @@ function setWeatherUI(cls) {
   updateMoonPhase();
 })();
 
-// ─── "Jetzt" marker plugin ────────────────────────────────────────────────────
+// ─── Current time label on x-axis ─────────────────────────────────────────────
 
-const nowLinePlugin = {
-  id: 'nowLine',
-  afterDatasetsDraw(chart) {
-    // Draw after datasets so the "Jetzt"-indicator stays visible across all charts.
-    const PLUS_Y_OFFSET = 12;
-    const LABEL_Y_OFFSET = 25;
+const currentTimeLabelPlugin = {
+  id: 'currentTimeLabel',
+  afterDraw(chart) {
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea) return;
     const now = Date.now();
     if (now < xScale.min || now > xScale.max) return;
+    const label = new Date(now).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     const px = xScale.getPixelForValue(now);
-    const { top } = chartArea;
+    const x = Math.max(chartArea.left + 16, Math.min(chartArea.right - 16, px));
+    const y = chartArea.bottom + 12;
     ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.90)';
-    ctx.font = `700 16px ${Chart.defaults.font.family}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = `700 11px ${Chart.defaults.font.family}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('+', px, top + PLUS_Y_OFFSET);
-    ctx.font = `bold 10px ${Chart.defaults.font.family}`;
-    ctx.fillText('Jetzt', px, top + LABEL_Y_OFFSET);
+    ctx.fillText(label, x, y);
     ctx.restore();
   }
 };
@@ -1081,6 +1104,51 @@ function getMetricUpperBound(metricKey, datasets, aggregateSeries) {
   return null;
 }
 
+function withAlpha(color, alpha) {
+  const rgba = color.match(/rgba?\(([^)]+)\)/i);
+  if (rgba) {
+    const [r, g, b] = rgba[1].split(',').map((part) => Number.parseFloat(part.trim()));
+    if ([r, g, b].every(Number.isFinite)) {
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+  }
+  return color;
+}
+
+function getCurrentAggregatePoint(aggregateSeries) {
+  if (!Array.isArray(aggregateSeries) || aggregateSeries.length === 0) return null;
+  const now = Date.now();
+  let latestPast = null;
+  for (const point of aggregateSeries) {
+    const ts = point?.x instanceof Date ? point.x.getTime() : new Date(point?.x).getTime();
+    if (!Number.isFinite(ts) || !Number.isFinite(point?.mean)) continue;
+    if (ts <= now) latestPast = { x: point.x, y: point.mean };
+  }
+  if (latestPast) return latestPast;
+  const first = aggregateSeries.find((point) => Number.isFinite(point?.mean));
+  return first ? { x: first.x, y: first.mean } : null;
+}
+
+function getCurrentIndexByTime(points) {
+  if (!Array.isArray(points) || points.length === 0) return -1;
+  const now = Date.now();
+  let latestPastIndex = -1;
+  for (let i = 0; i < points.length; i += 1) {
+    const ts = points[i]?.x instanceof Date ? points[i].x.getTime() : new Date(points[i]?.x).getTime();
+    if (!Number.isFinite(ts)) continue;
+    if (ts <= now) latestPastIndex = i;
+  }
+  return latestPastIndex >= 0 ? latestPastIndex : 0;
+}
+
+function getPrecipitationAxisStep(maxValue) {
+  if (maxValue <= 1) return 0.2;
+  if (maxValue <= 2) return 0.5;
+  if (maxValue <= 5) return 1;
+  if (maxValue <= 10) return 2;
+  return 5;
+}
+
 function getDayKeyForDate(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -1150,6 +1218,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   }
   if (metricKey === 'uv_index') palette.mean = 'rgba(255, 255, 255, 0.98)';
   const aggregateSeries = computeAggregateSeries(seriesByProvider, metricKey);
+  const currentIndex = metricKey === 'precipitation' ? getCurrentIndexByTime(aggregateSeries) : -1;
 
   const unitSuffix = {
     temperature_2m: '°C',
@@ -1185,7 +1254,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             type: 'bar',
             label: 'Konfidenzband',
             data: aggregateSeries.map((point) => ({ x: point.x, y: [point.lower, point.upper] })),
-            backgroundColor: palette.band,
+            backgroundColor: aggregateSeries.map((_, idx) => idx === currentIndex ? palette.band : withAlpha(palette.band, 0.08)),
             borderColor: 'transparent',
             borderSkipped: false,
             borderRadius: 999,
@@ -1196,8 +1265,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             type: 'bar',
             label: 'Modellmittel',
             data: aggregateSeries.map((point) => ({ x: point.x, y: point.mean })),
-            backgroundColor: palette.mean,
-            borderColor: palette.mean,
+            backgroundColor: aggregateSeries.map((_, idx) => idx === currentIndex ? palette.mean : withAlpha(palette.mean, 0.18)),
+            borderColor: aggregateSeries.map((_, idx) => idx === currentIndex ? palette.mean : withAlpha(palette.mean, 0.18)),
             borderWidth: 0,
             borderSkipped: false,
             borderRadius: 999,
@@ -1329,6 +1398,28 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
     }
   }
 
+  if ((metricKey === 'temperature_2m' || metricKey === 'uv_index') && aggregateSeries.length > 0) {
+    const currentMeanPoint = getCurrentAggregatePoint(aggregateSeries);
+    if (currentMeanPoint) {
+      markerDatasets.push({
+        type: 'line',
+        label: 'Aktueller Modellmittelwert',
+        legendHidden: true,
+        data: [currentMeanPoint],
+        order: 101,
+        clip: false,
+        showLine: false,
+        pointRadius: 4.4,
+        pointHoverRadius: 4.4,
+        pointBackgroundColor: '#ffffff',
+        pointBorderColor: palette.mean,
+        pointBorderWidth: 2,
+        borderColor: 'transparent',
+        fill: false
+      });
+    }
+  }
+
   const datasets = [...aggregateDatasets, ...markerDatasets, ...providerDatasets];
   const yUpperBound = getMetricUpperBound(metricKey, datasets, aggregateSeries);
 
@@ -1360,7 +1451,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         font: { size: 11 },
         padding: 8,
         ...(metricKey === 'temperature_2m' ? { precision: 0 } : {}),
-        ...(metricKey === 'precipitation' ? { stepSize: PRECIPITATION_AXIS_STEP_MM_PER_HOUR } : {}),
+        ...(metricKey === 'precipitation' ? { stepSize: getPrecipitationAxisStep(yUpperBound ?? 1) } : {}),
         ...(metricKey === 'uv_index' ? { stepSize: 2, precision: 0 } : {})
       },
       border: { dash: [4, 4] },
@@ -1389,7 +1480,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             }
           }
         : metricKey === 'precipitation'
-          ? { min: 0, max: PRECIPITATION_AXIS_MAX_MM_PER_HOUR }
+          ? { min: 0, max: yUpperBound ?? 1 }
           : metricKey === 'uv_index'
             ? { min: 0, suggestedMax: yUpperBound }
             : {})
@@ -1407,7 +1498,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       plugins: [
         dayNightPlugin,
-        nowLinePlugin,
+        currentTimeLabelPlugin,
         valueBadgePlugin,
         {
           id: 'noDataLabel',
@@ -1480,7 +1571,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
       },
       scales: sharedScales
     },
-    plugins: [dayNightPlugin, nowLinePlugin, valueBadgePlugin]
+    plugins: [dayNightPlugin, currentTimeLabelPlugin, valueBadgePlugin]
   });
 }
 
