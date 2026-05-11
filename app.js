@@ -58,7 +58,8 @@ const WEATHER_ACCENTS = {
 };
 
 const PRECIPITATION_VALUE_COLOR = 'rgba(125, 198, 255, 0.96)';
-const PRECIPITATION_AXIS_MAX_MM_PER_HOUR = 0.5;
+const PRECIPITATION_AXIS_MAX_MM_PER_HOUR = 1;
+const PRECIPITATION_AXIS_STEP_MM_PER_HOUR = 0.2;
 const UV_INDEX_COLORS = [
   { min: 8, color: '#ff6b57' },
   { min: 6, color: '#ff9f43' },
@@ -726,7 +727,6 @@ async function applyWeatherBackground(coords) {
     updateSidebarStats(data, coords);
     updateHeroExtras(data);
     updateMoonPhase();
-    fetchAndDisplayAQI(coords);
 
     // Cache sunrise/sunset for chart day/night shading
     const sunrises = data?.daily?.sunrise ?? [];
@@ -1356,7 +1356,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
         font: { size: 11 },
         padding: 8,
         ...(metricKey === 'temperature_2m' ? { precision: 0 } : {}),
-        ...(metricKey === 'precipitation' ? { stepSize: 0.1 } : {})
+        ...(metricKey === 'precipitation' ? { stepSize: PRECIPITATION_AXIS_STEP_MM_PER_HOUR } : {})
       },
       border: { dash: [4, 4] },
       ...(metricKey === 'temperature_2m'
@@ -1452,7 +1452,14 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             boxWidth: 32,
             padding: 16,
             filter(item, data) {
-              return !data.datasets[item.datasetIndex]?.legendHidden;
+              const dataset = data.datasets[item.datasetIndex];
+              if (!dataset || dataset.legendHidden) return false;
+              if (metricKey !== 'temperature_2m' && metricKey !== 'precipitation') return true;
+              const hasLegendData = (dataset.data ?? []).some((point) => {
+                if (Array.isArray(point?.y)) return point.y.some(Number.isFinite);
+                return Number.isFinite(point?.y);
+              });
+              return hasLegendData;
             }
           }
         },
@@ -1617,85 +1624,6 @@ function updateMoonPhase() {
   setSidebarValue('moonPhaseName',    phaseName);
   setSidebarValue('moonIllumination', `${illuminated} % beleuchtet`);
   drawMoonCanvas(phase);
-}
-
-// ─── Air quality ──────────────────────────────────────────────────────────────
-
-const AQI_LEVELS = [
-  { max: 20,  label: 'Sehr gut',    color: '#4ade80' },
-  { max: 40,  label: 'Gut',         color: '#a3e635' },
-  { max: 60,  label: 'Mäßig',       color: '#facc15' },
-  { max: 80,  label: 'Schlecht',    color: '#fb923c' },
-  { max: 100, label: 'Sehr schlecht', color: '#f87171' },
-  { max: Infinity, label: 'Extrem schlecht', color: '#c084fc' }
-];
-
-// ─── Air quality ring diagram ─────────────────────────────────────────────────
-
-function drawAQIRing(aqi) {
-  const canvas = document.getElementById('aqiRingCanvas');
-  if (!canvas) return;
-  const ctx  = canvas.getContext('2d');
-  const size = canvas.width; // 56
-  const cx   = size / 2;
-  const cy   = size / 2;
-  const r    = size / 2 - 5;
-  const lw   = 6;
-
-  ctx.clearRect(0, 0, size, size);
-
-  // Background ring
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.lineWidth = lw;
-  ctx.stroke();
-
-  const level   = AQI_LEVELS.find((l) => aqi <= l.max) ?? AQI_LEVELS.at(-1);
-  const maxAQI  = 150;
-  const fraction = Math.min(1, Math.max(0, aqi / maxAQI));
-  const startAngle = -Math.PI / 2;
-  const endAngle   = startAngle + fraction * Math.PI * 2;
-
-  // Coloured arc
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, startAngle, endAngle);
-  ctx.strokeStyle = level.color;
-  ctx.lineWidth = lw;
-  ctx.lineCap = 'round';
-  ctx.stroke();
-
-  // AQI value text in centre
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 13px ${Chart.defaults.font.family ?? 'sans-serif'}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(String(Math.round(aqi)), cx, cy);
-}
-
-async function fetchAndDisplayAQI(coords) {
-  try {
-    const params = new URLSearchParams({
-      latitude:  String(coords.latitude),
-      longitude: String(coords.longitude),
-      current:   'european_aqi'
-    });
-    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?${params}`;
-    const res = await fetch(url);
-    if (!res.ok) return;
-    const data = await res.json();
-    const aqi  = data?.current?.european_aqi;
-    if (!Number.isFinite(aqi)) return;
-
-    const level  = AQI_LEVELS.find((l) => aqi <= l.max) ?? AQI_LEVELS.at(-1);
-
-    setSidebarValue('aqiValue', String(Math.round(aqi)));
-    setSidebarValue('aqiDesc',  level.label);
-    document.body.style.setProperty('--aqi-accent', level.color);
-    drawAQIRing(aqi);
-  } catch {
-    // AQI is non-critical; silently ignore errors
-  }
 }
 
 // ─── Liquid glass reflection (static – mouse-based animation removed) ─────────

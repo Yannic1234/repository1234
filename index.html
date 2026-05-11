@@ -65,22 +65,6 @@
         <div class="stats-grid">
 
           <div class="stat-card">
-            <span class="stat-label">Wind</span>
-            <div class="stat-wind-row">
-              <span class="stat-sub stat-gust" id="windGust">Böen –</span>
-              <svg id="windArrow" class="wind-svg" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2.2"
-                   stroke-linecap="round" stroke-linejoin="round"
-                   aria-hidden="true">
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <polyline points="5 11 12 4 19 11"/>
-              </svg>
-              <span class="stat-value" id="windSpeed">–</span>
-              <span class="stat-sub" id="windDirText">–</span>
-            </div>
-          </div>
-
-          <div class="stat-card">
             <span class="stat-label">Feuchtigkeit</span>
             <span class="stat-value" id="humidity">–</span>
           </div>
@@ -117,7 +101,7 @@
 
         </div>
 
-        <!-- ─── Moon phase + Air quality side by side ──── -->
+        <!-- ─── Moon phase + Wind side by side ──── -->
         <div class="moon-aqi-row">
           <!-- Moon phase -->
           <div class="moon-aqi-card glass-inner">
@@ -126,12 +110,21 @@
             <span class="moon-name" id="moonPhaseName">–</span>
             <span class="moon-illumination" id="moonIllumination">–</span>
           </div>
-          <!-- Air quality ring -->
-          <div class="moon-aqi-card glass-inner">
-            <span class="stat-label">Luftqualität</span>
-            <canvas id="aqiRingCanvas" width="56" height="56" aria-label="Luftqualität (AQI)"></canvas>
-            <span class="aqi-value" id="aqiValue">–</span>
-            <span class="aqi-desc" id="aqiDesc">–</span>
+          <!-- Wind conditions -->
+          <div class="moon-aqi-card glass-inner wind-card">
+            <span class="stat-label">Wind</span>
+            <div class="stat-wind-row">
+              <span class="stat-sub stat-gust" id="windGust">Böen –</span>
+              <svg id="windArrow" class="wind-svg" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round"
+                   aria-hidden="true">
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <polyline points="5 11 12 4 19 11"/>
+              </svg>
+            </div>
+            <span class="stat-value" id="windSpeed">–</span>
+            <span class="stat-sub" id="windDirText">–</span>
           </div>
         </div>
         <p id="status" class="status">Bereit.</p>
