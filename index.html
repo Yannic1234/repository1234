@@ -64,39 +64,82 @@
         <!-- ─── Stats grid (compact rows) ───────────────────── -->
         <div class="stats-grid">
 
-          <div class="stat-card">
-            <span class="stat-label">Feuchtigkeit</span>
-            <span class="stat-value" id="humidity">–</span>
+          <div class="stat-card stat-card--with-scale" id="humidityCard">
+            <div class="stat-top-row">
+              <span class="stat-label">Feuchtigkeit</span>
+              <span class="stat-inline-line" aria-hidden="true"></span>
+              <span class="stat-value" id="humidity">–</span>
+            </div>
+            <div class="stat-scale" aria-hidden="true">
+              <span class="stat-scale-bound">0 %</span>
+              <div class="stat-scale-track"><span class="stat-scale-dot"></span></div>
+              <span class="stat-scale-bound">100 %</span>
+            </div>
           </div>
 
-          <div class="stat-card">
-            <span class="stat-label">Luftdruck</span>
-            <span class="stat-value" id="pressure">–</span>
+          <div class="stat-card stat-card--with-scale" id="pressureCard">
+            <div class="stat-top-row">
+              <span class="stat-label">Luftdruck</span>
+              <span class="stat-inline-line" aria-hidden="true"></span>
+              <span class="stat-value" id="pressure">–</span>
+            </div>
+            <div class="stat-scale" aria-hidden="true">
+              <span class="stat-scale-bound">970</span>
+              <div class="stat-scale-track"><span class="stat-scale-dot"></span></div>
+              <span class="stat-scale-bound">1050</span>
+            </div>
           </div>
 
-          <div class="stat-card">
-            <span class="stat-label">Sichtweite</span>
-            <span class="stat-value" id="visibility">–</span>
+          <div class="stat-card stat-card--with-scale" id="visibilityCard">
+            <div class="stat-top-row">
+              <span class="stat-label">Sichtweite</span>
+              <span class="stat-inline-line" aria-hidden="true"></span>
+              <span class="stat-value" id="visibility">–</span>
+            </div>
+            <div class="stat-scale" aria-hidden="true">
+              <span class="stat-scale-bound">0</span>
+              <div class="stat-scale-track"><span class="stat-scale-dot"></span></div>
+              <span class="stat-scale-bound">100</span>
+            </div>
           </div>
 
-          <div class="stat-card">
-            <span class="stat-label">Aufgang</span>
-            <span class="stat-value" id="sunrise">–</span>
+          <div class="stat-card stat-card--with-scale" id="sunriseCard">
+            <div class="stat-top-row">
+              <span class="stat-label">Aufgang</span>
+              <span class="stat-inline-line" aria-hidden="true"></span>
+              <span class="stat-value" id="sunrise">–</span>
+            </div>
+            <div class="stat-scale" aria-hidden="true">
+              <span class="stat-scale-bound">05:00</span>
+              <div class="stat-scale-track"><span class="stat-scale-dot"></span></div>
+              <span class="stat-scale-bound">09:00</span>
+            </div>
           </div>
 
-          <div class="stat-card">
-            <span class="stat-label">Untergang</span>
-            <span class="stat-value" id="sunset">–</span>
+          <div class="stat-card stat-card--with-scale" id="sunsetCard">
+            <div class="stat-top-row">
+              <span class="stat-label">Untergang</span>
+              <span class="stat-inline-line" aria-hidden="true"></span>
+              <span class="stat-value" id="sunset">–</span>
+            </div>
+            <div class="stat-scale" aria-hidden="true">
+              <span class="stat-scale-bound">16:00</span>
+              <div class="stat-scale-track"><span class="stat-scale-dot"></span></div>
+              <span class="stat-scale-bound">22:00</span>
+            </div>
           </div>
 
-          <div class="stat-card">
-            <span class="stat-label">UV-Index</span>
-            <span class="stat-value" id="currentUV">–</span>
-          </div>
-
-          <div class="stat-card">
-            <span class="stat-label">Niederschlag</span>
-            <span class="stat-value" id="currentPrecip">–</span>
+          <div class="stat-card stat-card--with-scale" id="uvCard">
+            <div class="stat-top-row">
+              <span class="stat-label">UV-Index</span>
+              <span class="stat-inline-line" aria-hidden="true"></span>
+              <span class="stat-value" id="currentUV">–</span>
+            </div>
+            <div class="stat-scale" aria-hidden="true">
+              <span class="stat-scale-bound">0</span>
+              <div class="stat-scale-track"><span class="stat-scale-dot"></span></div>
+              <span class="stat-scale-bound">8</span>
+            </div>
           </div>
 
         </div>
