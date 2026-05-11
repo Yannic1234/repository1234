@@ -863,6 +863,7 @@ function setWeatherUI(cls) {
 const currentTimeLabelPlugin = {
   id: 'currentTimeLabel',
   afterDraw(chart) {
+    const TIME_LABEL_PADDING = 16;
     const { ctx, scales, chartArea } = chart;
     const xScale = scales.x;
     if (!xScale || !chartArea) return;
@@ -870,7 +871,7 @@ const currentTimeLabelPlugin = {
     if (now < xScale.min || now > xScale.max) return;
     const label = new Date(now).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     const px = xScale.getPixelForValue(now);
-    const x = Math.max(chartArea.left + 16, Math.min(chartArea.right - 16, px));
+    const x = Math.max(chartArea.left + TIME_LABEL_PADDING, Math.min(chartArea.right - TIME_LABEL_PADDING, px));
     const y = chartArea.bottom + 12;
     ctx.save();
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
@@ -1112,6 +1113,20 @@ function withAlpha(color, alpha) {
       return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
   }
+  const hex6 = color.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (hex6) {
+    const r = Number.parseInt(hex6[1], 16);
+    const g = Number.parseInt(hex6[2], 16);
+    const b = Number.parseInt(hex6[3], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  const hex3 = color.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i);
+  if (hex3) {
+    const r = Number.parseInt(hex3[1] + hex3[1], 16);
+    const g = Number.parseInt(hex3[2] + hex3[2], 16);
+    const b = Number.parseInt(hex3[3] + hex3[3], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
   return color;
 }
 
@@ -1219,6 +1234,12 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
   if (metricKey === 'uv_index') palette.mean = 'rgba(255, 255, 255, 0.98)';
   const aggregateSeries = computeAggregateSeries(seriesByProvider, metricKey);
   const currentIndex = metricKey === 'precipitation' ? getCurrentIndexByTime(aggregateSeries) : -1;
+  const precipBandColors = metricKey === 'precipitation'
+    ? aggregateSeries.map((_, idx) => idx === currentIndex ? palette.band : withAlpha(palette.band, 0.08))
+    : [];
+  const precipMeanColors = metricKey === 'precipitation'
+    ? aggregateSeries.map((_, idx) => idx === currentIndex ? palette.mean : withAlpha(palette.mean, 0.18))
+    : [];
 
   const unitSuffix = {
     temperature_2m: '°C',
@@ -1254,7 +1275,7 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             type: 'bar',
             label: 'Konfidenzband',
             data: aggregateSeries.map((point) => ({ x: point.x, y: [point.lower, point.upper] })),
-            backgroundColor: aggregateSeries.map((_, idx) => idx === currentIndex ? palette.band : withAlpha(palette.band, 0.08)),
+            backgroundColor: precipBandColors,
             borderColor: 'transparent',
             borderSkipped: false,
             borderRadius: 999,
@@ -1265,8 +1286,8 @@ function renderOverlayChart(canvasId, metricLabel, seriesByProvider, metricKey) 
             type: 'bar',
             label: 'Modellmittel',
             data: aggregateSeries.map((point) => ({ x: point.x, y: point.mean })),
-            backgroundColor: aggregateSeries.map((_, idx) => idx === currentIndex ? palette.mean : withAlpha(palette.mean, 0.18)),
-            borderColor: aggregateSeries.map((_, idx) => idx === currentIndex ? palette.mean : withAlpha(palette.mean, 0.18)),
+            backgroundColor: precipMeanColors,
+            borderColor: precipMeanColors,
             borderWidth: 0,
             borderSkipped: false,
             borderRadius: 999,
