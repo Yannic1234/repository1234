@@ -1135,7 +1135,8 @@ function getCurrentAggregatePoint(aggregateSeries) {
   const now = Date.now();
   let latestPast = null;
   for (const point of aggregateSeries) {
-    const ts = point?.x instanceof Date ? point.x.getTime() : new Date(point?.x).getTime();
+    if (!point?.x) continue;
+    const ts = point.x instanceof Date ? point.x.getTime() : new Date(point.x).getTime();
     if (!Number.isFinite(ts) || !Number.isFinite(point?.mean)) continue;
     if (ts <= now) latestPast = { x: point.x, y: point.mean };
   }
@@ -1149,7 +1150,8 @@ function getCurrentIndexByTime(points) {
   const now = Date.now();
   let latestPastIndex = -1;
   for (let i = 0; i < points.length; i += 1) {
-    const ts = points[i]?.x instanceof Date ? points[i].x.getTime() : new Date(points[i]?.x).getTime();
+    if (!points[i]?.x) continue;
+    const ts = points[i].x instanceof Date ? points[i].x.getTime() : new Date(points[i].x).getTime();
     if (!Number.isFinite(ts)) continue;
     if (ts <= now) latestPastIndex = i;
   }
